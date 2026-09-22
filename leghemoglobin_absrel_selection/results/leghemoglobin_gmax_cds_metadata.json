@@ -1,0 +1,42 @@
+[
+  {
+    "key": "LB1",
+    "paralog_label": "Lbc3",
+    "glyma_id": "Glyma.10G198800",
+    "mrna_accession": "NM_001248494.2",
+    "ncbi_gene_id": "100527391",
+    "odb_id": "3847_0:0065e0",
+    "tree_label": "Glycine_max__3847_0_0065e0",
+    "cds_length_nt": 438
+  },
+  {
+    "key": "LB2",
+    "paralog_label": "Lbc1",
+    "glyma_id": "Glyma.10G199000",
+    "mrna_accession": "NM_001358072.1",
+    "ncbi_gene_id": "100785236",
+    "odb_id": "3847_0:006217",
+    "tree_label": "Glycine_max__3847_0_006217",
+    "cds_length_nt": 435
+  },
+  {
+    "key": "LB3",
+    "paralog_label": "Lba",
+    "glyma_id": "Glyma.10G199100",
+    "mrna_accession": "NM_001248999.3",
+    "ncbi_gene_id": "100527427",
+    "odb_id": "3847_0:0065fa",
+    "tree_label": "Glycine_max__3847_0_0065fa",
+    "cds_length_nt": 435
+  },
+  {
+    "key": "LB4",
+    "paralog_label": "Lbc2",
+    "glyma_id": "Glyma.20G191200",
+    "mrna_accession": "NM_001248319.3",
+    "ncbi_gene_id": "100527379",
+    "odb_id": "3847_0:00ca2d",
+    "tree_label": "Glycine_max__3847_0_00ca2d",
+    "cds_length_nt": 438
+  }
+]
