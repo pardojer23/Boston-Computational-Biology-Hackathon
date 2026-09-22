@@ -20,7 +20,7 @@ Three things are deliberate here:
 
 * **The heme pocket is taken from a heme-bound crystal structure, not from
   recalled residue numbers.** AFDB models are apo, so there is no ligand to
-  measure contacts against. Residues within ``POCKET_CUTOFF_A`` of the heme in
+  measure contacts against. Residues within the configured contact cutoff of the heme in
   a soybean leghemoglobin-a crystal are transferred onto every family member
   through the MAFFT alignment the sequence module already produced. UniProt's
   own heme-binding annotations for the same protein are fetched independently
@@ -43,24 +43,15 @@ import pandas as pd
 import soy_globin_core as core
 
 # --------------------------------------------------------------------------
-# constants
-
-UNIPROT_SEARCH = "https://rest.uniprot.org/uniprotkb/search"
-UNIPROT_ENTRY = "https://rest.uniprot.org/uniprotkb/{acc}.json"
-AFDB_API = "https://alphafold.ebi.ac.uk/api/prediction/{acc}"
-RCSB_PDB = "https://files.rcsb.org/download/{pdb_id}.pdb"
-
-SOYBEAN_TAXON = 3847
-
-#: Heme-bound soybean leghemoglobin-a crystal structure used to define the
-#: pocket. 1BIN is 2.20 A (1FSL, 2.30 A, is the alternative); both are
-#: cross-referenced from P02238 and span residues 2-144.
-POCKET_TEMPLATE_PDB = "1BIN"
-POCKET_LIGAND = "HEM"
-
-#: Any residue with a heavy atom within this distance of any heme heavy atom
-#: is called part of the pocket.
-POCKET_CUTOFF_A = 5.0
+# No constants.
+#
+# The endpoints, the taxon, the pocket template, its ligand and the contact
+# cutoff are all in `config/config.yaml` under `structure:`. The pocket
+# template in particular carried a second, hidden parameter: which family
+# member the crystal numbering is transferred *through*. That was
+# `endswith('_Lba')` at the call site, so renaming the symbol raised a bare
+# StopIteration (docs/PIPELINE_AUDIT.md 2.4b). It is now
+# `structure.pocket.reference_member`, validated at config load.
 
 _UA = {"User-Agent": "Python-urllib"}
 
@@ -82,17 +73,57 @@ def _get(url: str, tries: int = 3, pause: float = 2.0) -> bytes:
 # 1. gene id -> UniProt accession
 
 
-def resolve_uniprot(gene_ids: list[str]) -> pd.DataFrame:
-    """Map Wm82.a4 gene IDs to UniProt accessions by gene-name search.
+def uniprot_release(search_api: str) -> str:
+    """The UniProt release the mapping is being resolved against.
 
-    Resolved at run time rather than hardcoded so that pointing the pipeline
-    at another family needs no edit here.
+    Stamped onto the persisted accession table. The gene-to-accession mapping is
+    the least stable input in this pipeline — a release can change which entry
+    a gene-name search returns best, and that changes the structure, the
+    TM-scores and the pocket. Previously the query ran fresh on every run with
+    nothing recorded, so a changed accession would have been invisible
+    (audit 2.1).
     """
+    try:
+        req = urllib.request.Request(f"{search_api}?query=reviewed:true&size=1&format=list",
+                                     headers=_UA)
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return r.headers.get("X-UniProt-Release") or "unknown"
+    except Exception as exc:  # pragma: no cover - provenance only
+        return f"unknown ({exc})"
+
+
+def resolve_uniprot(gene_ids: list[str], cfg) -> pd.DataFrame:
+    """Map gene IDs to UniProt accessions by gene-name search.
+
+    Honours ``structure.uniprot.pinned``: a pinned mapping skips the network
+    entirely, which is how a run is frozen against a UniProt release change.
+    Either way the release and the resolution mode land in the output table.
+    """
+    search_api = cfg["structure.uniprot.search_api"]
+    taxon = int(cfg["family.species.ncbi_taxon"])
+    pinned = cfg.get("structure.uniprot.pinned") or {}
+    release = uniprot_release(search_api)
+
     rows = []
     for gid in gene_ids:
-        q = f"(gene:{gid}) AND (organism_id:{SOYBEAN_TAXON})"
+        if gid in pinned:
+            acc = pinned[gid]
+            ent = json.loads(_get(cfg["structure.uniprot.entry_api"].format(acc=acc)).decode())
+            names = ent.get("proteinDescription", {}).get("recommendedName", {})
+            rows.append({
+                "gene_id": gid, "uniprot": acc,
+                "entry_name": ent.get("uniProtkbId"),
+                "uniprot_protein_name": (names.get("fullName") or {}).get("value", ""),
+                "uniprot_length": int(ent.get("sequence", {}).get("length", 0)),
+                "uniprot_reviewed": ent.get("entryType", "").lower().startswith(
+                    "uniprotkb reviewed"),
+                "n_uniprot_hits": 1,
+                "uniprot_release": release, "resolution": "pinned",
+            })
+            continue
+        q = f"(gene:{gid}) AND (organism_id:{taxon})"
         url = (
-            f"{UNIPROT_SEARCH}?query={urllib.parse.quote(q)}"
+            f"{search_api}?query={urllib.parse.quote(q)}"
             "&fields=accession,id,protein_name,length,reviewed"
             "&format=tsv&size=5"
         )
@@ -102,7 +133,8 @@ def resolve_uniprot(gene_ids: list[str]) -> pd.DataFrame:
             rows.append(
                 {"gene_id": gid, "uniprot": None, "entry_name": None,
                  "uniprot_protein_name": None, "uniprot_length": np.nan,
-                 "uniprot_reviewed": None, "n_uniprot_hits": 0}
+                 "uniprot_reviewed": None, "n_uniprot_hits": 0,
+                 "uniprot_release": release, "resolution": "live"}
             )
             continue
         # Prefer a reviewed (Swiss-Prot) entry when the search returns several.
@@ -112,7 +144,9 @@ def resolve_uniprot(gene_ids: list[str]) -> pd.DataFrame:
         rows.append(
             {"gene_id": gid, "uniprot": acc, "entry_name": entry,
              "uniprot_protein_name": pname, "uniprot_length": int(length),
-             "uniprot_reviewed": reviewed.strip(), "n_uniprot_hits": len(hits)}
+             "uniprot_reviewed": reviewed.strip().lower().startswith("reviewed"),
+             "n_uniprot_hits": len(hits),
+             "uniprot_release": release, "resolution": "live"}
         )
     return pd.DataFrame(rows)
 
@@ -121,19 +155,30 @@ def resolve_uniprot(gene_ids: list[str]) -> pd.DataFrame:
 # 2. AlphaFold DB
 
 
-def fetch_afdb(acc: str, outdir: str | Path) -> dict:
-    """Download the AFDB model for ``acc``. Returns provenance, not just a path."""
-    outdir = Path(outdir)
-    outdir.mkdir(parents=True, exist_ok=True)
-    meta = json.loads(_get(AFDB_API.format(acc=acc)).decode())
+def fetch_afdb(acc: str, cache_dir: str | Path, api: str, force: bool = False) -> dict:
+    """Download the AFDB model for ``acc``. Returns provenance, not just a path.
+
+    ``cache_dir`` is a *cache*, not the deliverable directory. It used to be
+    ``results/structure_module/pdb/``, which made the output directory double
+    as the download cache: deleting results to force a clean re-run also
+    deleted the cache, and a stale model survived a config change (audit 2.2).
+    The workflow copies from here into results.
+
+    The older ``AF-<acc>-F1-model_v4.pdb`` file URL no longer resolves — go
+    through the API and use the URL it hands back.
+    """
+    cache_dir = Path(cache_dir)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    meta = json.loads(_get(api.format(acc=acc)).decode())
     if not meta:
         raise RuntimeError(f"no AlphaFold DB entry for {acc}")
     m = meta[0]
     url = m.get("pdbUrl")
     if not url:
         raise RuntimeError(f"AFDB entry for {acc} has no pdbUrl")
-    dest = outdir / f"AF-{acc}-F1.pdb"
-    dest.write_bytes(_get(url))
+    dest = cache_dir / f"AF-{acc}-F1.pdb"
+    if force or not dest.exists() or dest.stat().st_size == 0:
+        dest.write_bytes(_get(url))
     return {
         "uniprot": acc,
         "pdb_path": str(dest),
@@ -242,21 +287,28 @@ def pairwise_identity_global(a: str, b: str) -> tuple[float, int]:
 
 
 def heme_pocket_residues(
-    pdb_id: str = POCKET_TEMPLATE_PDB,
-    ligand: str = POCKET_LIGAND,
-    cutoff: float = POCKET_CUTOFF_A,
-    cache_dir: str | Path = ".",
+    pdb_id: str,
+    ligand: str,
+    cutoff: float,
+    cache_dir: str | Path,
+    template_api: str,
 ) -> dict:
-    """Residues lining the heme in a heme-bound crystal structure.
+    """Residues lining the ligand in a ligand-bound crystal structure.
 
     Empirical: any polypeptide residue with a heavy atom within ``cutoff`` of
-    any heme heavy atom. Returns the crystal chain used, the residue numbers,
+    any ligand heavy atom. Returns the crystal chain used, the residue numbers,
     and the one-letter sequence of the chain so callers can map positions.
+
+    This depends on nothing but ``(pdb_id, ligand, cutoff)`` — it is a *root*
+    of the dependency graph, not a step downstream of the family search, and
+    the workflow caches it on those three values so a cutoff sweep is cheap
+    (audit 2.4a). AlphaFold models are apo, which is why the pocket has to come
+    from a crystal at all.
     """
     cache = Path(cache_dir) / f"{pdb_id}.pdb"
     cache.parent.mkdir(parents=True, exist_ok=True)
     if not cache.exists():
-        cache.write_bytes(_get(RCSB_PDB.format(pdb_id=pdb_id)))
+        cache.write_bytes(_get(template_api.format(pdb_id=pdb_id)))
 
     coords, keys = read_pdb_heavy_atoms(cache)
     is_lig = np.array([k[2] == ligand for k in keys])
@@ -291,9 +343,14 @@ def heme_pocket_residues(
     }
 
 
-def uniprot_ligand_sites(acc: str) -> list[dict]:
-    """UniProt ``Binding site`` features, as an independent check on the transfer."""
-    d = json.loads(_get(UNIPROT_ENTRY.format(acc=acc)).decode())
+def uniprot_ligand_sites(acc: str, entry_api: str) -> list[dict]:
+    """UniProt ``Binding site`` features, as an independent check on the transfer.
+
+    These are a check *on* the crystal-derived pocket, not its source. Four of
+    the five annotated sites for the committed reference member fall inside it;
+    the pass condition is ``structure.pocket_crosscheck.min_sites_inside``.
+    """
+    d = json.loads(_get(entry_api.format(acc=acc)).decode())
     out = []
     for f in d.get("features", []):
         if f.get("type") != "Binding site":

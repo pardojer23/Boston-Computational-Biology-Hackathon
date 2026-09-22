@@ -1,0 +1,17 @@
+{
+  "config_digest": "eaa6afbc423e",
+  "config_source": "config/config.yaml",
+  "generated_utc": "2026-09-22T19:16:41Z",
+  "inputs_sha256": {
+    "work/phylo/globins.aln.faa": "894668d41dbf9e7af733311a6713de72cf6305355027a14eec53f78abd0e4dab"
+  },
+  "n_pairs": 21,
+  "outputs_sha256": {
+    "results/sequence_module/pairwise_identity_matrix.csv": "19cf76fff6139b337e2d1a9f5cce901b0a6e8a876ac5f1e850058b7a5ee484af",
+    "results/sequence_module/pairwise_identity_pairs.csv": "7ea30eead181b4f7e3caef30e4c15e7a019548dfef6d25be55e3ee6843682d27"
+  },
+  "params": {},
+  "python": "3.11.16",
+  "step": "identity",
+  "tools": {}
+}

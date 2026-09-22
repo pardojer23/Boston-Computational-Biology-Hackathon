@@ -1,0 +1,33 @@
+{
+  "checks": {
+    "family_cutoff_gap": {
+      "best_rejected_bitscore": 13.5,
+      "best_rejected_protein": "glyma.Wm82.gnm4.ann1.Glyma.17G033600.3",
+      "bitscore_gap": 49.7,
+      "min_required": 25.0,
+      "n_accepted": 7,
+      "n_hits_relaxed": 10,
+      "passed": true,
+      "policy": "fail",
+      "relaxed_evalue": 10.0,
+      "weakest_accepted_bitscore": 63.2
+    }
+  },
+  "config_digest": "eaa6afbc423e",
+  "config_source": "config/config.yaml",
+  "generated_utc": "2026-09-22T19:16:38Z",
+  "inputs_sha256": {
+    "data/reference/PF00042.hmm": "7b300a21130b823627b09dd11fc5a76a7ca49515504c33493d140bcdeda93db3",
+    "data/reference/proteins_primary.faa.gz": "603603800a4b1966868214159e892c44655c69ffc690f676732ed1c204c8447a",
+    "results/sequence_module/globin_family_members.csv": "5c14b993da3a74d443faa4affc967e6f6cdb6de9892c2429cbefece9663c1419"
+  },
+  "outputs_sha256": {
+    "results/sequence_module/cutoff_check.json": "0d503a15a99975b0af3a2024ccb1dbfa11792e13fec13beae08aea4136378d9a"
+  },
+  "params": {
+    "relaxed_evalue": 10
+  },
+  "python": "3.11.16",
+  "step": "cutoff_check",
+  "tools": {}
+}

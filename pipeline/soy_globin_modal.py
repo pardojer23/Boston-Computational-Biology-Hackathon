@@ -66,7 +66,7 @@ cpu_image = (
         "numpy",
         channels=["conda-forge", "bioconda"],
     )
-    .add_local_python_source("soy_globin_core")
+    .add_local_python_source("soy_globin_core", "config", "contracts")
 )
 
 gpu_image = (
@@ -78,7 +78,7 @@ gpu_image = (
         "pandas",
     )
     .env({"HF_HOME": f"{CACHE_DIR}/huggingface"})
-    .add_local_python_source("soy_globin_core")
+    .add_local_python_source("soy_globin_core", "config", "contracts")
 )
 
 
@@ -94,16 +94,34 @@ gpu_image = (
 )
 def select_globin_family(force_fetch: bool = False) -> dict:
     """Download references (cached in the Volume) and select the globin family."""
+    import config as cfgmod
     import soy_globin_core as core
 
     t0 = time.time()
-    paths = core.fetch_inputs(f"{DATA_DIR}/ref", force=force_fetch)
+    cfg = cfgmod.load()
+    ref = cfg.section("reference")["files"]
+    hmm = cfg.section("sequence")["hmm"]
+    paths = {
+        "proteome": core.fetch_file(ref["proteome"]["url"],
+                                    f"{DATA_DIR}/ref/proteins_primary.faa.gz",
+                                    ref["proteome"]["sha256"], force=force_fetch)["path"],
+        "gff3": core.fetch_file(ref["gff3"]["url"],
+                                f"{DATA_DIR}/ref/gene_models_exons.gff3.gz",
+                                ref["gff3"]["sha256"], force=force_fetch)["path"],
+    }
+    paths["pfam_hmm"] = core.fetch_file(
+        hmm["url"], f"{DATA_DIR}/ref/PF00042.hmm.gz", hmm["sha256"],
+        force=force_fetch, gunzip_to=f"{DATA_DIR}/ref/PF00042.hmm")["gunzipped_path"]
     data_vol.commit()
 
+    _seq = cfg.section("sequence")
+    _dup = _seq["duplication"]
+    _ident = cfg["family.identifiers"]
     seqs, members = core.select_family(
-        paths["proteome"], paths["pfam_hmm"], f"{DATA_DIR}/work/hmmer", cpu=8
+        paths["proteome"], paths["pfam_hmm"], f"{DATA_DIR}/work/hmmer", cfg, cpu=8
     )
-    genes = core.parse_gff_genes(paths["gff3"])
+    genes = core.parse_gff_genes(paths["gff3"], _ident["id_prefix_strip"],
+                                 _ident["chromosome_regex"])
 
     return {
         "seqs": seqs,
@@ -143,6 +161,7 @@ def _fasta_bytes(seqs: dict[str, str], width: int = 60) -> bytes:
 )
 def align_tree_identity(seqs: dict[str, str]) -> dict:
     """MAFFT L-INS-i -> IQ-TREE 2 -> Newick + percent-identity matrices."""
+    import config as cfgmod
     import soy_globin_core as core
 
     t0 = time.time()
@@ -151,8 +170,12 @@ def align_tree_identity(seqs: dict[str, str]) -> dict:
 
     faa, aln = wd / "globins.faa", wd / "globins.aln.faa"
     core.write_fasta(seqs, faa)
-    core.run_mafft(faa, aln, threads=8)
-    tree = core.run_iqtree(aln, wd / "globins", threads="8")
+    _aln_cfg = cfgmod.load().section("sequence")["alignment"]
+    _phy = cfgmod.load().section("sequence")["phylogeny"]
+    core.run_mafft(faa, aln, threads=8, args=_aln_cfg["args"])
+    tree = core.run_iqtree(aln, wd / "globins", threads="8", seed=int(_phy["seed"]),
+                           model=_phy["model"], ufboot=int(_phy["ufboot"]),
+                           alrt=int(_phy["alrt"]))
 
     mat, long = core.pairwise_identity(aln)
     data_vol.commit()
@@ -188,11 +211,15 @@ def esm2_cosine(seqs: dict[str, str]) -> dict:
     import io
 
     import numpy as np
+    import config as cfgmod
     import soy_globin_core as core
     import torch
 
     t0 = time.time()
-    labels, emb = core.esm2_embeddings(seqs, core.ESM2_MODEL, batch_size=8)
+    e = cfgmod.load().section("sequence")["embedding"]
+    labels, emb = core.esm2_embeddings(seqs, model_name=e["model"],
+                                       batch_size=int(e["batch_size"]),
+                                       dtype_name=e["dtype"])
     cache_vol.commit()
     dist = core.cosine_distance_matrix(labels, emb)
 
@@ -203,7 +230,7 @@ def esm2_cosine(seqs: dict[str, str]) -> dict:
         "cosine_matrix_csv": dist.to_csv().encode(),
         "embeddings_npz": buf.getvalue(),
         "meta": {
-            "model": core.ESM2_MODEL,
+            "model": e["model"],
             "embedding_dim": int(emb.shape[1]),
             "pooling": "mean over residue tokens (BOS/EOS/PAD excluded)",
             "device": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu",
@@ -227,6 +254,7 @@ def paralog_pairs(
     import io
 
     import pandas as pd
+    import config as cfgmod
     import soy_globin_core as core
 
     members = pd.read_csv(io.BytesIO(members_csv))
@@ -238,14 +266,19 @@ def paralog_pairs(
         else None
     )
 
-    pairs, ctx = core.classify_pairs(members, genes, identity_long=ident, cosine=cos)
+    _dup = cfgmod.load().section("sequence")["duplication"]
+    pairs, ctx = core.classify_pairs(
+        members, genes,
+        max_intervening=int(_dup["tandem_max_intervening_genes"]),
+        proximal_max_bp=int(_dup["proximal_max_bp"]),
+        identity_long=ident, cosine=cos)
     return {
         "paralog_pairs_csv": pairs.to_csv(index=False).encode(),
         "gene_context_csv": ctx.to_csv(index=False).encode(),
         "context_parquet": ctx.to_parquet(index=False),
         "meta": {
-            "tandem_max_intervening_genes": core.TANDEM_MAX_INTERVENING,
-            "proximal_max_bp": core.PROXIMAL_MAX_BP,
+            "tandem_max_intervening_genes": _dup["tandem_max_intervening_genes"],
+            "proximal_max_bp": _dup["proximal_max_bp"],
             "mode_counts": pairs.duplication_mode.value_counts().to_dict(),
         },
     }

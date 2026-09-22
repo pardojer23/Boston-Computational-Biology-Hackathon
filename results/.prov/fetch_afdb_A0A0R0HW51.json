@@ -1,0 +1,36 @@
+{
+  "afdb": {
+    "afdb_entry": "AF-A0A0R0HW51-F1",
+    "afdb_model_created": "2025-08-01",
+    "afdb_version": 6,
+    "frac_plddt_very_low": 0.077,
+    "mean_plddt": 81.62,
+    "pdb_path": "work/structure/afdb/AF-A0A0R0HW51-F1.pdb",
+    "pdb_url": "https://alphafold.ebi.ac.uk/files/AF-A0A0R0HW51-F1-model_v6.pdb",
+    "uniprot": "A0A0R0HW51"
+  },
+  "checks": {
+    "afdb_model_version": {
+      "acc": "A0A0R0HW51",
+      "expected": 6,
+      "passed": true,
+      "policy": "warn",
+      "version": 6
+    }
+  },
+  "config_digest": "eaa6afbc423e",
+  "config_source": "config/config.yaml",
+  "generated_utc": "2026-09-22T19:02:59Z",
+  "inputs_sha256": {},
+  "outputs_sha256": {
+    "work/structure/afdb/AF-A0A0R0HW51-F1.meta.json": "a273112b7b7e1d7ee1da3a74eaea36e7df62eb2319a83ba87b3a462d16a6030b",
+    "work/structure/afdb/AF-A0A0R0HW51-F1.pdb": "40fb39844f51502353c5c20e648fd3edb8c946035bdfef7a90e33c4b16cf415e"
+  },
+  "params": {
+    "acc": "A0A0R0HW51",
+    "api": "https://alphafold.ebi.ac.uk/api/prediction/{acc}"
+  },
+  "python": "3.11.16",
+  "step": "fetch_afdb_A0A0R0HW51",
+  "tools": {}
+}

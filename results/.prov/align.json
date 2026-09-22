@@ -1,0 +1,34 @@
+{
+  "checks": {
+    "alignment_columns": {
+      "expected": 162,
+      "n_columns": 162,
+      "passed": true,
+      "policy": "warn"
+    }
+  },
+  "config_digest": "eaa6afbc423e",
+  "config_source": "config/config.yaml",
+  "generated_utc": "2026-09-22T19:16:40Z",
+  "inputs_sha256": {
+    "results/sequence_module/globins.faa": "285bf1079d363a0c45822d2beed9a4a428a76340266ac0a8025bfc77af40f6ca"
+  },
+  "n_columns": 162,
+  "n_sequences": 7,
+  "outputs_sha256": {
+    "work/phylo/globins.aln.faa": "894668d41dbf9e7af733311a6713de72cf6305355027a14eec53f78abd0e4dab"
+  },
+  "params": {
+    "args": [
+      "--localpair",
+      "--maxiterate",
+      "1000"
+    ],
+    "cfg_section": "e6a70d86c4a5"
+  },
+  "python": "3.11.16",
+  "step": "align",
+  "tools": {
+    "mafft": "v7.526 (2024/Apr/26)"
+  }
+}

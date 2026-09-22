@@ -1,0 +1,27 @@
+{
+  "config_digest": "eaa6afbc423e",
+  "config_source": "config/config.yaml",
+  "generated_utc": "2026-09-22T19:16:37Z",
+  "inputs_sha256": {
+    "data/reference/PF00042.hmm": "7b300a21130b823627b09dd11fc5a76a7ca49515504c33493d140bcdeda93db3",
+    "data/reference/proteins_primary.faa.gz": "603603800a4b1966868214159e892c44655c69ffc690f676732ed1c204c8447a"
+  },
+  "n_focal_rescued": 0,
+  "n_hits": 7,
+  "n_members": 7,
+  "n_proteins_searched": 52872,
+  "outputs_sha256": {
+    "results/sequence_module/globin_family_members.csv": "5c14b993da3a74d443faa4affc967e6f6cdb6de9892c2429cbefece9663c1419",
+    "results/sequence_module/globins.faa": "285bf1079d363a0c45822d2beed9a4a428a76340266ac0a8025bfc77af40f6ca"
+  },
+  "params": {
+    "accession": "PF00042",
+    "cfg_section": "1b4f49870328",
+    "threshold": "cut_ga"
+  },
+  "python": "3.11.16",
+  "step": "select_family",
+  "tools": {
+    "hmmsearch": "HMMER 3.4 (Aug 2023); http://hmmer.org/"
+  }
+}

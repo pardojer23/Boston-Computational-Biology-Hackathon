@@ -1,0 +1,14 @@
+{
+  "family_cutoff_gap": {
+    "policy": "fail",
+    "relaxed_evalue": 10.0,
+    "n_hits_relaxed": 10,
+    "n_accepted": 7,
+    "weakest_accepted_bitscore": 63.2,
+    "best_rejected_bitscore": 13.5,
+    "best_rejected_protein": "glyma.Wm82.gnm4.ann1.Glyma.17G033600.3",
+    "bitscore_gap": 49.7,
+    "min_required": 25.0,
+    "passed": true
+  }
+}

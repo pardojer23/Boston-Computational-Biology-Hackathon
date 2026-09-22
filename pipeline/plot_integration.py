@@ -55,11 +55,19 @@ def pair_label(r) -> str:
     return f"{r.symbol_a}\u2013{r.symbol_b}"
 
 
-def load(results: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
-    d = results / "integration_module"
-    sc = pd.read_csv(d / "redundancy_scores.csv")
-    sw = pd.read_csv(d / "weight_sensitivity.csv")
-    return sc, sw
+#: Pair class for the focal clade. Was the literal "Lb-Lb"; the integration
+#: module now derives it from focal membership rather than the family name.
+FOCAL_CLASS = "focal-focal"
+
+
+def load(scores: Path, sweep: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Read the two integration tables by explicit path.
+
+    Previously took a results *directory* and assembled the paths itself, which
+    meant the figure could silently plot a different run's tables than the ones
+    the workflow declared as its inputs.
+    """
+    return pd.read_csv(scores), pd.read_csv(sweep)
 
 
 def panel_a(ax, sc: pd.DataFrame, alpha: float, beta: float, focal: dict[str, str]) -> None:
@@ -82,8 +90,8 @@ def panel_a(ax, sc: pd.DataFrame, alpha: float, beta: float, focal: dict[str, st
             ax.text(0.985, m_edge + 0.012, f"$R$={rv:g}", fontsize=SIZES[2],
                     color=GREY, ha="right", va="bottom", zorder=1)
 
-    lb = sc[sc.pair_class == "Lb-Lb"]
-    other = sc[sc.pair_class != "Lb-Lb"]
+    lb = sc[sc.pair_class == FOCAL_CLASS]
+    other = sc[sc.pair_class != FOCAL_CLASS]
 
     # Non-focal pairs first, at low visual weight; shape carries duplication mode.
     for mode, mk in (("tandem", "o"), ("dispersed", "s")):
@@ -144,7 +152,7 @@ def panel_a(ax, sc: pd.DataFrame, alpha: float, beta: float, focal: dict[str, st
 def panel_b(ax, sc: pd.DataFrame, alpha: float, focal: dict[str, str],
             top_e_key: str, top_m_key: str) -> None:
     """Every focal pair's score as the weight on M sweeps 0 to 1."""
-    lb = sc[sc.pair_class == "Lb-Lb"]
+    lb = sc[sc.pair_class == FOCAL_CLASS]
     grid = np.linspace(0.0, 1.0, 101)
     curves = {}
     for r in lb.itertuples():
@@ -220,17 +228,26 @@ def bbox_report(fig) -> list[str]:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--results", default=str(ROOT / "results"))
+    ap.add_argument("--config", default=None, help="path to config.yaml")
+    ap.add_argument("--scores", default=None, help="redundancy_scores.csv")
+    ap.add_argument("--sweep", default=None, help="weight_sensitivity.csv")
+    ap.add_argument("--results", default=str(ROOT / "results"),
+                    help="fallback root when --scores/--sweep are not given")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
 
     results = Path(args.results)
-    out = Path(args.out) if args.out else results / "integration_module" / "redundancy_summary.png"
-    sc, sw = load(results)
+    scores = Path(args.scores) if args.scores else \
+        results / "integration_module" / "redundancy_scores.csv"
+    sweep = Path(args.sweep) if args.sweep else \
+        results / "integration_module" / "weight_sensitivity.csv"
+    out = Path(args.out) if args.out else \
+        results / "integration_module" / "redundancy_summary.png"
+    sc, sw = load(scores, sweep)
     alpha = float(sc.alpha_M.iloc[0])
     beta = float(sc.beta_E.iloc[0])
 
-    lb = sc[sc.pair_class == "Lb-Lb"]
+    lb = sc[sc.pair_class == FOCAL_CLASS]
     top_e = pair_label(lb.sort_values("R_family", ascending=False).iloc[0])
     top_m = pair_label(lb.sort_values("M_family", ascending=False).iloc[0])
     focal = {top_e: C_TOP_E, top_m: C_TOP_M}

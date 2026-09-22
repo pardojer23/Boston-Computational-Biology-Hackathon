@@ -222,3 +222,4 @@ __marimo__/
 data/
 work/
 # ESM2 embeddings are 34 KB; keep them. Everything else in results/ is text.
+.DS_Store

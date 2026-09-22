@@ -1,4 +1,4 @@
-alpha,beta,top_pair_overall,top_lb_pair,top_lb_R,lb_R_spread
+alpha,beta,top_pair_overall,top_focal_pair,top_focal_R,focal_R_spread
 0.0,1.0,Glyma.10G198800_Lbc3|Glyma.10G199000_Lbc1,Glyma.10G198800_Lbc3|Glyma.10G199000_Lbc1,0.7898257213393087,0.5299288108047417
 0.05,0.95,Glyma.10G198800_Lbc3|Glyma.10G199000_Lbc1,Glyma.10G198800_Lbc3|Glyma.10G199000_Lbc1,0.797085543222169,0.5202894123028067
 0.1,0.9,Glyma.10G198800_Lbc3|Glyma.10G199000_Lbc1,Glyma.10G198800_Lbc3|Glyma.10G199000_Lbc1,0.80441209503335,0.5096179093912756

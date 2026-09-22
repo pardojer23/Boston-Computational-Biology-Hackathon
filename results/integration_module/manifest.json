@@ -10,42 +10,55 @@
     "rationale": "the four raw molecular features are collinear across the family (Spearman 0.85-0.94) but come apart within the Lb clade (identity vs pocket identity rho = 0.39), so sequence is collapsed to one axis rather than counted twice",
     "seq": "mean of normalised pid_aligned and normalised ESM2 similarity"
   },
+  "config_digest": "eaa6afbc423e",
   "directional_scores": "R_a_covered_by_b / R_b_covered_by_a use the partner's suppliable dose fraction in place of the symmetric dose ratio",
   "metrics_not_used": {
     "coexpression_overlap": "NA upstream \u2014 per-cell quantity, pseudobulk has no cells",
     "duplication_mode": "reported as an interpretive column, deliberately not a score term",
-    "spearman_profile": "1.000 for all six Lb pairs; carries no information"
+    "spearman_profile": "1.000 for all six focal pairs; carries no information"
   },
   "n_pairs": 21,
   "normalisation_scopes": {
-    "clade": "M and E each rescaled as a whole across the Lb-Lb pairs onto [0.05, 1]; R_clade is a relative ranking inside the clade, where the lowest value means lowest of the six observed, not 'not redundant'. The floor exists because a plain min-max zero in either factor would zero the product and merge pairs that differ; it changes no ordering.",
+    "clade": "M and E each rescaled as a whole across the focal-focal pairs onto [0.05, 1]; R_clade is a relative ranking inside the clade, where the lowest value means lowest of the six observed, not 'not redundant'. The floor exists because a plain min-max zero in either factor would zero the product and merge pairs that differ; it changes no ordering.",
     "family": "min-max over all pairs; R_family is absolute"
   },
-  "runner": "pipeline/run_integration.py",
   "score_form": "R = M**alpha * E**beta (gated, not additive)",
   "validation_checks": {
-    "directional_coverage_tracks_abundance": {
+    "directional_coverage_abundance": {
+      "abundance_column": "cpm_mean_nodule",
       "agreeing": 6,
       "pairs_tested": 6,
-      "passed": true
+      "passed": true,
+      "policy": "fail"
     },
-    "focal_pairs_separate_from_outgroups": {
-      "lb_lb_min_R": 0.4302018791499305,
+    "focal_outgroup_separation": {
+      "focal_min_R": 0.4302018791499305,
+      "n_focal_pairs": 6,
+      "n_other_pairs": 15,
       "other_max_R": 0.13045037164467393,
-      "passed": true
+      "passed": true,
+      "policy": "fail"
+    },
+    "pair_join_completeness": {
+      "expected": 21,
+      "n_members": 7,
+      "n_pairs": 21,
+      "passed": true,
+      "policy": "fail"
     },
     "symmetric_ranking_top": {
       "margin": 0.01084513214722016,
+      "policy": "report",
       "runner_up": "Glyma.10G198800_Lbc3|Glyma.20G191200_Lbc2",
       "runner_up_R_family": 0.8389623479617965,
-      "top_lb_R_family": 0.8498074801090166,
-      "top_lb_pair": "Glyma.10G198800_Lbc3|Glyma.10G199000_Lbc1"
+      "top_focal_R_family": 0.8498074801090166,
+      "top_focal_pair": "Glyma.10G198800_Lbc3|Glyma.10G199000_Lbc1"
     }
   },
   "weight_sensitivity": {
-    "alpha_grid": "0 to 1 in 21 steps",
-    "top_lb_pair_changes_with_alpha": true,
-    "top_lb_pair_unique": [
+    "alpha_grid": "0.0 to 1.0 in 21 steps",
+    "top_focal_pair_changes_with_alpha": true,
+    "top_focal_pair_unique": [
       "Glyma.10G198800_Lbc3|Glyma.10G199000_Lbc1",
       "Glyma.10G198800_Lbc3|Glyma.20G191200_Lbc2"
     ]

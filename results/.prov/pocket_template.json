@@ -1,0 +1,20 @@
+{
+  "chain": "A",
+  "config_digest": "eaa6afbc423e",
+  "config_source": "config/config.yaml",
+  "generated_utc": "2026-09-22T19:16:41Z",
+  "inputs_sha256": {},
+  "n_pocket_residues": 23,
+  "outputs_sha256": {
+    "work/structure/templates/pocket_1BIN_HEM_5.0.json": "e8aa6bc04ed316686277dbfa6e89c8b6dd0c2df093f1ce21a3d1c6e6212e2e54"
+  },
+  "params": {
+    "cfg_section": "251d38d45f11",
+    "cutoff_a": 5.0,
+    "ligand": "HEM",
+    "template_pdb": "1BIN"
+  },
+  "python": "3.11.16",
+  "step": "pocket_template",
+  "tools": {}
+}

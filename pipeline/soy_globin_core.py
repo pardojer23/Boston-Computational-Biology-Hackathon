@@ -33,63 +33,35 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from itertools import combinations
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 
 # --------------------------------------------------------------------------- #
-# Constants
+# No constants.
+#
+# Every value that used to live here — the SoyBase URLs, FOCAL_GENES,
+# GENE_SYMBOLS, the ESM2 model id, the duplication thresholds, the identifier
+# regexes — is now in ``config/config.yaml`` and reaches these functions as an
+# argument. The reason is not tidiness: the previous arrangement meant that
+# editing FOCAL_GENES and re-running one module produced a clean-looking table
+# scored against a different family definition, with nothing to detect it
+# (docs/PIPELINE_AUDIT.md finding 1). As config the same edit changes the
+# config digest, which is a declared input of every rule.
+#
+# These functions take a ``cfg`` (a ``pipeline.config.Config``) but deliberately
+# do not import it: ``config`` needs PyYAML, and keeping this module free of
+# that dependency is what lets the identical code run inside the Modal image.
+# The dependency is duck-typed and checked at the call site.
 # --------------------------------------------------------------------------- #
 
-SOYBASE_BASE = (
-    "https://data.soybase.org/Glycine/max/annotations/Wm82.gnm4.ann1.T8TQ"
-)
-PROTEOME_URL = f"{SOYBASE_BASE}/glyma.Wm82.gnm4.ann1.T8TQ.protein_primary.faa.gz"
-GFF3_URL = f"{SOYBASE_BASE}/glyma.Wm82.gnm4.ann1.T8TQ.gene_models_exons.gff3.gz"
-PFAM_HMM_URL = "https://www.ebi.ac.uk/interpro/wwwapi//entry/pfam/PF00042?annotation=hmm"
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from config import Config
 
-#: Focal leghemoglobins (Wm82.a4.v1 gene IDs) -> symbol. These are the genes the
-#: study is about, and they are unioned into the family regardless of the
-#: PF00042 cutoff (see ``select_family``).
-FOCAL_GENES = {
-    "Glyma.10G199100": "Lba",
-    "Glyma.10G199000": "Lbc1",
-    "Glyma.20G191200": "Lbc2",
-    "Glyma.10G198800": "Lbc3",
-}
 
-#: Canonical symbol for every family member that has one, focal or not. The
-#: three non-focal symbols were established by the structure module's UniProt
-#: resolution, not assumed.
-#:
-#: This is the ONLY place a gene symbol is declared. ``label_of`` reads it, every
-#: module's labels derive from ``label_of``, and every pair table therefore
-#: agrees. It used to be declared twice — here and in
-#: ``soy_globin_expression.FAMILY`` — which made ``Glyma.10G198900`` carry a
-#: symbol in one module and not the other, and silently cost 6 of 21 rows on any
-#: join between them. Do not reintroduce a second copy.
-#:
-#: Adding or changing a symbol here changes labels in every committed output, so
-#: all modules have to be re-run together.
-GENE_SYMBOLS = {
-    **FOCAL_GENES,
-    "Glyma.10G198900": "GmLb5",  # UniProt A0A0R0HW51 / LGB5_SOYBN
-    "Glyma.11G121700": "Hb1",    # UniProt I1LJI1 / NSHB1_SOYBN
-    "Glyma.11G121800": "Hb2",    # UniProt Q42785 / NSHB2_SOYBN
-}
-
-ESM2_MODEL = "facebook/esm2_t33_650M_UR50D"
-
-#: A same-chromosome pair with at most this many intervening protein-coding genes
-#: is called a tandem duplicate (the convention used by MCScanX / PGDD).
-TANDEM_MAX_INTERVENING = 10
-#: Same chromosome, more than TANDEM_MAX_INTERVENING apart but within this bp
-#: window -> "proximal"; beyond it -> "dispersed".
-PROXIMAL_MAX_BP = 1_000_000
-
-# Strip the assembly/annotation prefix that SoyBase puts on every identifier.
-_ID_PREFIX = re.compile(r"^glyma\.Wm82\.gnm4\.ann1\.")
-_CHR_RE = re.compile(r"Gm(\d+)$")
+def _compiled(pattern: str | re.Pattern) -> re.Pattern:
+    return pattern if isinstance(pattern, re.Pattern) else re.compile(pattern)
 
 
 # --------------------------------------------------------------------------- #
@@ -168,20 +140,34 @@ def write_fasta(seqs: dict[str, str], path: str | Path, width: int = 60) -> None
                 fh.write(seq[i : i + width] + "\n")
 
 
-def gene_of(protein_id: str) -> str:
-    """'glyma.Wm82.gnm4.ann1.Glyma.10G199100.1' -> 'Glyma.10G199100'."""
-    core = _ID_PREFIX.sub("", protein_id)
+def gene_of(protein_id: str, id_prefix: str | re.Pattern) -> str:
+    """``glyma.Wm82.gnm4.ann1.Glyma.10G199100.1`` -> ``Glyma.10G199100``.
+
+    ``id_prefix`` comes from ``family.identifiers.id_prefix_strip``; it was a
+    module constant compiled against this one assembly.
+    """
+    core = _compiled(id_prefix).sub("", protein_id)
     return core.rsplit(".", 1)[0] if re.search(r"\.\d+$", core) else core
 
 
-def label_of(gene_id: str) -> str:
-    """Tree/matrix label: gene ID, suffixed with its symbol if it has one."""
-    sym = GENE_SYMBOLS.get(gene_id)
+def label_of(gene_id: str, symbols: dict[str, str]) -> str:
+    """Tree/matrix label: gene ID, suffixed with its symbol if it has one.
+
+    ``symbols`` is ``cfg.gene_symbols`` — focal and outgroup merged. The map was
+    a module constant (``GENE_SYMBOLS``) declared in two places at one point,
+    and the two copies disagreeing about whether ``Glyma.10G198900`` carries a
+    symbol silently cost 6 of 21 rows on any cross-module join (README §6).
+    Passing it in means there is one map, held by the config.
+    """
+    sym = symbols.get(gene_id)
     return f"{gene_id}_{sym}" if sym else gene_id
 
 
 def gene_from_label(label: str) -> str:
-    """Inverse of ``label_of``: 'Glyma.10G199100_Lba' -> 'Glyma.10G199100'."""
+    """Inverse of ``label_of``: ``Glyma.10G199100_Lba`` -> ``Glyma.10G199100``.
+
+    Needs no family knowledge, so it takes no config.
+    """
     return label.split("_", 1)[0]
 
 
@@ -197,6 +183,10 @@ def canonical_pair_order(labels: Iterable[str]) -> list[tuple[str, str]]:
     the same pair in opposite orientations, and a merge on those columns then
     drops the reversed rows without raising. Four of 21 pairs were reversed this
     way before this function existed.
+
+    ``contracts.canonical_pairs`` implements the same ordering and is what the
+    table contracts check against; this stays as the name the science modules
+    call, and the test suite asserts the two agree.
     """
     pairs = [tuple(sorted((a, b), key=gene_from_label)) for a, b in combinations(labels, 2)]
     return sorted(pairs, key=lambda p: (gene_from_label(p[0]), gene_from_label(p[1])))
@@ -207,29 +197,76 @@ def canonical_pair_order(labels: Iterable[str]) -> list[tuple[str, str]]:
 # --------------------------------------------------------------------------- #
 
 
-def fetch_inputs(datadir: str | Path, force: bool = False) -> dict[str, str]:
-    """Download proteome, GFF3 and the PF00042 HMM. Cached by presence on disk."""
-    datadir = Path(datadir)
-    datadir.mkdir(parents=True, exist_ok=True)
-    targets = {
-        "proteome": (PROTEOME_URL, datadir / "proteins_primary.faa.gz"),
-        "gff3": (GFF3_URL, datadir / "gene_models_exons.gff3.gz"),
-        "pfam_hmm_gz": (PFAM_HMM_URL, datadir / "PF00042.hmm.gz"),
-    }
-    out: dict[str, str] = {}
-    for key, (url, dest) in targets.items():
-        if force or not dest.exists() or dest.stat().st_size == 0:
-            print(f"[fetch] {url}", flush=True)
-            with urllib.request.urlopen(url, timeout=300) as r, open(dest, "wb") as fh:
-                shutil.copyfileobj(r, fh)
-        out[key] = str(dest)
+class ChecksumMismatch(RuntimeError):
+    """A downloaded or cached reference file does not match its pinned digest."""
 
-    hmm = datadir / "PF00042.hmm"
-    if force or not hmm.exists():
-        with gzip.open(out["pfam_hmm_gz"], "rb") as src, open(hmm, "wb") as dst:
-            shutil.copyfileobj(src, dst)
-    out["pfam_hmm"] = str(hmm)
-    return out
+
+def verify_sha256(path: str | Path, expected: str | None) -> str:
+    """Return the file's digest, raising if it does not match ``expected``.
+
+    ``expected=None`` records without asserting — used the first time a file is
+    pinned, so the digest can be read off the run manifest and pasted into the
+    config.
+    """
+    got = sha256(path)
+    if expected and got != expected:
+        raise ChecksumMismatch(
+            f"{path}\n  expected sha256 {expected}\n  got      sha256 {got}\n"
+            f"The pinned reference has changed upstream. SoyBase and InterPro "
+            f"both re-release under the same URL, so this is the only thing "
+            f"standing between a silent annotation change and a re-scored "
+            f"family. Confirm the new release is what you want, then update "
+            f"the digest in config/config.yaml."
+        )
+    return got
+
+
+def fetch_file(
+    url: str,
+    dest: str | Path,
+    sha256_expected: str | None = None,
+    force: bool = False,
+    gunzip_to: str | Path | None = None,
+) -> dict:
+    """Download one file and verify it. Returns a provenance record.
+
+    One file per call rather than the previous all-three-at-once helper: each
+    reference is its own workflow rule with its own output, so a changed HMM
+    re-runs the family search without re-downloading the proteome.
+
+    Caching is by presence *and digest*: a file already on disk is verified
+    rather than trusted, which is what makes a truncated download — previously
+    detectable only when a parser failed much later — fail here instead.
+    """
+    dest = Path(dest)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+
+    need = force or not dest.exists() or dest.stat().st_size == 0
+    if not need and sha256_expected:
+        try:
+            verify_sha256(dest, sha256_expected)
+        except ChecksumMismatch:
+            print(f"[fetch] cached {dest.name} fails its digest; re-downloading",
+                  flush=True)
+            need = True
+    if need:
+        print(f"[fetch] {url}", flush=True)
+        with urllib.request.urlopen(url, timeout=300) as r, open(dest, "wb") as fh:
+            shutil.copyfileobj(r, fh)
+
+    got = verify_sha256(dest, sha256_expected)
+    rec = {"url": url, "path": str(dest), "sha256": got,
+           "bytes": dest.stat().st_size, "downloaded": bool(need)}
+
+    if gunzip_to is not None:
+        out = Path(gunzip_to)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        if force or need or not out.exists():
+            with gzip.open(dest, "rb") as src, open(out, "wb") as dst:
+                shutil.copyfileobj(src, dst)
+        rec["gunzipped_path"] = str(out)
+        rec["gunzipped_sha256"] = sha256(out)
+    return rec
 
 
 def hmm_metadata(hmm_path: str | Path) -> dict[str, str]:
@@ -295,31 +332,112 @@ def parse_domtblout(path: str | Path) -> pd.DataFrame:
     return df
 
 
+def hmmsearch(
+    hmm: str | Path,
+    proteome: str | Path,
+    workdir: str | Path,
+    prefix: str,
+    threshold: str = "cut_ga",
+    evalue: float | None = None,
+    cpu: int = 4,
+) -> dict[str, Path]:
+    """One hmmsearch invocation. Returns the paths it wrote.
+
+    Split out of ``select_family`` so the relaxed cutoff check can reuse it
+    instead of being a hand-run command whose result lived only in prose
+    (README §1.2, audit 1.2).
+    """
+    workdir = Path(workdir)
+    workdir.mkdir(parents=True, exist_ok=True)
+    paths = {
+        "tblout": workdir / f"{prefix}.tblout",
+        "domtblout": workdir / f"{prefix}.domtblout",
+        "out": workdir / f"{prefix}.hmmsearch.out",
+    }
+    if threshold == "cut_ga":
+        thr = ["--cut_ga"]
+    elif threshold == "evalue":
+        if evalue is None:
+            raise ValueError("threshold='evalue' requires an evalue")
+        thr = ["-E", str(evalue)]
+    else:
+        raise ValueError(f"unknown threshold {threshold!r}; use 'cut_ga' or 'evalue'")
+
+    run(
+        ["hmmsearch", *thr, "--cpu", str(cpu),
+         "--tblout", str(paths["tblout"]), "--domtblout", str(paths["domtblout"]),
+         "-o", str(paths["out"]), str(hmm), str(proteome)],
+        log=workdir / f"{prefix}.hmmsearch.log",
+    )
+    return paths
+
+
+def cutoff_gap_check(
+    hmm: str | Path,
+    proteome: str | Path,
+    workdir: str | Path,
+    n_accepted: int,
+    relaxed_evalue: float = 10.0,
+    cpu: int = 4,
+) -> dict:
+    """Evidence that the gathering threshold is not truncating the family.
+
+    Runs the search again at a relaxed E-value and measures the bit-score gap
+    between the weakest accepted hit and the best rejected one. A large gap
+    means the cutoff falls in empty space rather than through a continuum of
+    weaker family members.
+
+    For the committed run: the 8th-best protein in the genome scores 13.5
+    (E = 0.23) against 63.2 for the weakest real hit — a ~50-bit gap. That
+    number was obtained by hand and written into the README; here it is
+    computed, recorded, and subject to a configured pass condition.
+    """
+    paths = hmmsearch(hmm, proteome, workdir, prefix="relaxed",
+                      threshold="evalue", evalue=relaxed_evalue, cpu=cpu)
+    hits = parse_tblout(paths["tblout"]).sort_values("score_full", ascending=False)
+    scores = hits.score_full.tolist()
+    accepted = scores[:n_accepted]
+    rejected = scores[n_accepted:]
+    weakest_accepted = float(accepted[-1]) if accepted else float("nan")
+    best_rejected = float(rejected[0]) if rejected else float("-inf")
+    gap = weakest_accepted - best_rejected if rejected else float("inf")
+    return {
+        "relaxed_evalue": relaxed_evalue,
+        "n_hits_relaxed": int(len(hits)),
+        "n_accepted": int(n_accepted),
+        "weakest_accepted_bitscore": weakest_accepted,
+        "best_rejected_bitscore": best_rejected if rejected else None,
+        "best_rejected_protein": (hits.protein_id.iloc[n_accepted]
+                                  if rejected else None),
+        "bitscore_gap": gap,
+    }
+
+
 def select_family(
     proteome: str | Path,
     hmm: str | Path,
     workdir: str | Path,
+    cfg: "Config",
     cpu: int = 4,
-    focal: dict[str, str] | None = None,
 ) -> tuple[dict[str, str], pd.DataFrame]:
-    """hmmsearch --cut_ga for PF00042, then union with the focal Lb genes.
+    """HMM search over the proteome, unioned with the configured focal genes.
 
-    Returns (labelled sequences, membership table).
+    Returns (labelled sequences, membership table). Family membership is
+    *discovered*, not declared — the focal genes are only guaranteed to be
+    present, and everything else in the table is whatever the HMM found.
     """
-    focal = FOCAL_GENES if focal is None else focal
-    workdir = Path(workdir)
-    workdir.mkdir(parents=True, exist_ok=True)
-    tbl, domtbl = workdir / "PF00042.tblout", workdir / "PF00042.domtblout"
+    focal = cfg.focal_genes
+    symbols = cfg.gene_symbols
+    id_prefix = _compiled(cfg["family.identifiers.id_prefix_strip"])
+    acc = cfg["sequence.hmm.accession"]
 
-    run(
-        [
-            "hmmsearch", "--cut_ga", "--cpu", str(cpu),
-            "--tblout", str(tbl), "--domtblout", str(domtbl),
-            "-o", str(workdir / "hmmsearch.out"),
-            str(hmm), str(proteome),
-        ],
-        log=workdir / "hmmsearch.log",
+    paths = hmmsearch(
+        hmm, proteome, workdir, prefix=acc,
+        threshold=cfg["sequence.select.threshold"],
+        evalue=cfg.get("sequence.select.evalue"),
+        cpu=cpu,
     )
+    tbl, domtbl = paths["tblout"], paths["domtblout"]
 
     hits = parse_tblout(tbl)
     dom = parse_domtblout(domtbl)
@@ -334,31 +452,38 @@ def select_family(
     all_seqs = read_fasta(proteome)
     prot_by_gene: dict[str, str] = {}
     for pid in all_seqs:
-        prot_by_gene.setdefault(gene_of(pid), pid)
+        prot_by_gene.setdefault(gene_of(pid, id_prefix), pid)
 
     hit_pids = set(hits.protein_id)
     rescued = []
-    for gene in focal:
-        pid = prot_by_gene.get(gene)
-        if pid is None:
-            raise KeyError(f"focal gene {gene} not found in proteome {proteome}")
-        if pid not in hit_pids:
-            hit_pids.add(pid)
-            rescued.append(gene)
-    if rescued:
-        print(f"[select] focal genes added below the PF00042 GA cutoff: {rescued}")
+    if cfg.get("sequence.select.rescue_focal_below_cutoff", True):
+        for gene in focal:
+            pid = prot_by_gene.get(gene)
+            if pid is None:
+                raise KeyError(f"focal gene {gene} not found in proteome {proteome}")
+            if pid not in hit_pids:
+                hit_pids.add(pid)
+                rescued.append(gene)
+        if rescued:
+            print(f"[select] focal genes added below the {acc} cutoff: {rescued}")
+    else:
+        absent = [g for g in focal if prot_by_gene.get(g) not in hit_pids]
+        if absent:
+            raise KeyError(
+                f"focal genes below the {acc} cutoff and rescue is disabled: {absent}"
+            )
 
     rows = []
     for pid in sorted(hit_pids):
-        gene = gene_of(pid)
+        gene = gene_of(pid, id_prefix)
         h = hits[hits.protein_id == pid]
         d = best_dom[best_dom.protein_id == pid] if not best_dom.empty else best_dom
         rows.append(
             {
                 "gene_id": gene,
-                "label": label_of(gene),
+                "label": label_of(gene, symbols),
                 "protein_id": pid,
-                "symbol": GENE_SYMBOLS.get(gene, ""),
+                "symbol": symbols.get(gene, ""),
                 "is_focal": gene in focal,
                 "prot_len": len(all_seqs[pid]),
                 "pfam_hit": pid not in {prot_by_gene[g] for g in rescued},
@@ -383,9 +508,23 @@ def select_family(
 # --------------------------------------------------------------------------- #
 
 
-def run_mafft(fasta: str | Path, out_aln: str | Path, threads: int = 4) -> str:
-    """MAFFT L-INS-i (accurate, suitable for <~200 sequences)."""
-    cmd = ["mafft", "--localpair", "--maxiterate", "1000",
+def run_mafft(
+    fasta: str | Path,
+    out_aln: str | Path,
+    threads: int = 4,
+    args: Iterable[str] = ("--localpair", "--maxiterate", "1000"),
+) -> str:
+    """MAFFT with the configured mode (default L-INS-i).
+
+    ``args`` is ``sequence.alignment.args``. This alignment is the coordinate
+    system for pairwise identity, the heme-pocket transfer and the pocket
+    identity of every structural pair — the highest fan-out artefact in the
+    pipeline — so its mode belongs in the manifest rather than inside this
+    function (audit 1.3a). ``--anysymbol`` is not configurable: it guards
+    against non-standard residue codes in the proteome and changing it would
+    make the run fail rather than differ.
+    """
+    cmd = ["mafft", *[str(a) for a in args],
            "--anysymbol", "--thread", str(threads), str(fasta)]
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:
@@ -404,13 +543,28 @@ def iqtree_exe() -> str:
 
 
 def run_iqtree(
-    aln: str | Path, prefix: str | Path, threads: str | int = "AUTO", seed: int = 20240601
+    aln: str | Path,
+    prefix: str | Path,
+    threads: str | int = "AUTO",
+    seed: int = 20240601,
+    model: str = "MFP",
+    ufboot: int = 1000,
+    alrt: int = 1000,
 ) -> dict[str, str]:
-    """IQ-TREE 2: ModelFinder + 1000 UFBoot replicates + 1000 SH-aLRT replicates."""
+    """IQ-TREE: ModelFinder plus ultrafast-bootstrap and SH-aLRT replicates.
+
+    The tree is a *terminal* branch of the pipeline: it is reported, relabelled
+    with chromosomes, and read by no scoring step (``sequence.phylogeny.
+    feeds_score: false``). Internal support within the focal clade is 31-47
+    because four sequences at >91% identity over 162 columns do not contain
+    enough signal to resolve their branching order — more replicates will not
+    change that (README §1.3, §9.3).
+    """
     exe = iqtree_exe()
     run(
-        [exe, "-s", str(aln), "-m", "MFP", "-B", "1000", "--alrt", "1000",
-         "-T", str(threads), "--seed", str(seed), "--prefix", str(prefix), "-redo"],
+        [exe, "-s", str(aln), "-m", str(model), "-B", str(ufboot),
+         "--alrt", str(alrt), "-T", str(threads), "--seed", str(seed),
+         "--prefix", str(prefix), "-redo"],
         log=str(prefix) + ".cmd.log",
     )
     return {
@@ -479,18 +633,31 @@ def pairwise_identity(aln_path: str | Path) -> tuple[pd.DataFrame, pd.DataFrame]
 
 def esm2_embeddings(
     seqs: dict[str, str],
-    model_name: str = ESM2_MODEL,
+    model_name: str,
     device: str | None = None,
     batch_size: int = 8,
+    dtype_name: str | None = None,
 ) -> tuple[list[str], np.ndarray]:
-    """Mean-pooled final-layer ESM2 embeddings, averaged over residues only
-    (BOS/EOS/PAD excluded)."""
+    """Mean-pooled final-layer ESM2 embeddings, over residue tokens only.
+
+    BOS/EOS/PAD are masked before averaging, which matters because sequences of
+    different length are batched together.
+
+    ``dtype_name`` ('float32' | 'float16') is explicit rather than inferred from
+    the device. The committed cosine matrix is fp32 on CPU; fp16 on a GPU
+    differs in the fourth decimal, and leaving that implicit in the hardware is
+    how a provenance difference gets mistaken for a result (README §1.5, §5.2).
+    """
     import torch
     from transformers import AutoTokenizer, EsmModel
 
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
-    dtype = torch.float16 if device == "cuda" else torch.float32
+    if dtype_name is None:
+        dtype_name = "float16" if device == "cuda" else "float32"
+    if dtype_name not in ("float16", "float32"):
+        raise ValueError(f"dtype_name must be float16 or float32, got {dtype_name!r}")
+    dtype = torch.float16 if dtype_name == "float16" else torch.float32
 
     tok = AutoTokenizer.from_pretrained(model_name)
     # add_pooling_layer=False: we pool ourselves from last_hidden_state, and the
@@ -535,8 +702,18 @@ def cosine_distance_matrix(labels: list[str], emb: np.ndarray) -> pd.DataFrame:
 # --------------------------------------------------------------------------- #
 
 
-def parse_gff_genes(gff: str | Path) -> pd.DataFrame:
-    """Gene features from the Wm82.gnm4.ann1 GFF3, with per-seqid rank order."""
+def parse_gff_genes(
+    gff: str | Path,
+    id_prefix: str | re.Pattern,
+    chrom_regex: str | re.Pattern,
+) -> pd.DataFrame:
+    """Gene features from the annotation GFF3, with per-seqid rank order.
+
+    ``id_prefix`` and ``chrom_regex`` come from ``family.identifiers``; they
+    were module constants compiled against this one assembly's conventions.
+    """
+    id_prefix = _compiled(id_prefix)
+    chrom_re = _compiled(chrom_regex)
     opener = gzip.open if str(gff).endswith(".gz") else open
     rows = []
     with opener(gff, "rt") as fh:
@@ -549,8 +726,8 @@ def parse_gff_genes(gff: str | Path) -> pd.DataFrame:
             attrs = dict(
                 kv.split("=", 1) for kv in f[8].split(";") if "=" in kv
             )
-            gene = attrs.get("Name") or _ID_PREFIX.sub("", attrs.get("ID", ""))
-            m = _CHR_RE.search(f[0])
+            gene = attrs.get("Name") or id_prefix.sub("", attrs.get("ID", ""))
+            m = chrom_re.search(f[0])
             rows.append(
                 {
                     "gene_id": gene,
@@ -571,10 +748,10 @@ def parse_gff_genes(gff: str | Path) -> pd.DataFrame:
 def classify_pairs(
     members: pd.DataFrame,
     genes: pd.DataFrame,
+    max_intervening: int,
+    proximal_max_bp: int,
     identity_long: pd.DataFrame | None = None,
     cosine: pd.DataFrame | None = None,
-    max_intervening: int = TANDEM_MAX_INTERVENING,
-    proximal_max_bp: int = PROXIMAL_MAX_BP,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Annotate every within-family pair as tandem / proximal / dispersed.
 

@@ -1,0 +1,26 @@
+{
+  "config_digest": "eaa6afbc423e",
+  "config_source": "config/config.yaml",
+  "generated_utc": "2026-09-22T19:03:02Z",
+  "inputs_sha256": {
+    "results/sequence_module/globins.aln.faa": "894668d41dbf9e7af733311a6713de72cf6305355027a14eec53f78abd0e4dab",
+    "results/structure_module/structures.csv": "ad33cb5306639cdea6842a02441277aa9f67bfb0c7c72b63e32700aff48b72bc",
+    "work/structure/pocket_columns.json": "b0fbda61a84bc5878e4eba91cee4e9e171254e2f597340dfa127651c43c7a82d"
+  },
+  "outputs_sha256": {
+    "results/structure_module/structure_pairs.csv": "2ee29d8c397768ff0eef4bf8d9ece19f3e93d93e20a4f4db9197c47cb8631b14"
+  },
+  "params": {
+    "n_pocket_cols": 23,
+    "tm_score_convention": "normalised by the shorter chain"
+  },
+  "python": "3.11.16",
+  "step": "structure_pairs",
+  "tm_score_range": [
+    0.7446,
+    0.9976
+  ],
+  "tools": {
+    "tmtools": "0.3.0"
+  }
+}

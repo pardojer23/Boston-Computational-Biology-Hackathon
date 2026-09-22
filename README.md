@@ -586,19 +586,46 @@ is a provenance item, not a scientific one.
 .
 ├── README.md                        # this file
 ├── NEXT_RUN.md                      # handoff, rewritten against the current state
-├── environment.yml                  # conda env for modules 1-4
+├── config/
+│   └── config.yaml                  # every family-specific value and every
+│                                    #   parameter that changes an output; a
+│                                    #   hashed DAG input
+├── workflow/
+│   ├── Snakefile                    # the pipeline: 24 rules, five stages.
+│   │                                #   This is the run order.
+│   └── envs/
+│       ├── soyglobin.yaml           # pinned; every rule except one
+│       └── esm2.yaml                # pinned; the embedding rule only
+├── docs/
+│   ├── PIPELINE.md                  # rule reference, check policies, cache
+│   │                                #   keys, provenance, verification diff
+│   ├── PIPELINE_AUDIT.md            # pre-refactor audit, one block per step
+│   ├── pipeline_dag_snakemake.png   # the DAG, from snakemake --rulegraph
+│   └── pipeline_dag_current.png     # the pre-refactor dependency graph
+├── environment.yml                  # superseded by workflow/envs/; kept for
+│                                    #   the conda-activate path
 ├── pipeline/
-│   ├── soy_globin_core.py           # module 1 logic + the canonical family/pair
-│   │                                #   definitions every module reads; no Modal import
-│   ├── soy_globin_structure.py      # module 2 logic; no Modal import
-│   ├── soy_globin_expression.py     # module 3 logic + CLI; no Modal import
-│   ├── soy_globin_integration.py    # module 4 logic; no Modal import, no matplotlib
+│   ├── config.py                    # load, validate and hash config.yaml
+│   ├── contracts.py                 # declared table schemas, enforced on
+│   │                                #   write as well as read
+│   ├── steps.py                     # one CLI entry point per rule; thin shims
+│   │                                #   over the library modules, no science
+│   ├── soy_globin_core.py           # module 1 logic; no constants, no Modal
+│   ├── soy_globin_structure.py      # module 2 logic
+│   ├── soy_globin_expression.py     # module 3 logic
+│   ├── soy_globin_integration.py    # module 4 logic; no matplotlib
 │   ├── soy_globin_modal.py          # Modal app wrapping core (module 1 only)
-│   ├── run_local.py                 # module 1, locally
-│   ├── run_structure.py             # module 2
-│   ├── run_integration.py           # module 4
-│   ├── plot_integration.py          # module 4 figure (kept separate from the logic)
+│   ├── plot_integration.py          # module 4 figure (separate from the logic)
+│   ├── run_local.py                 # superseded by the workflow; module 1
+│   ├── run_structure.py             # superseded by the workflow; module 2
+│   ├── run_integration.py           # superseded by the workflow; module 4
 │   └── run_esm2_gpu.py              # module 1 stage 5 alone, as a remote job
+├── tests/
+│   └── test_invariants.py           # 37 tests; pair ordering, contracts, config
+├── results/
+│   ├── run_manifest.json            # run id, git commit, config digest, and
+│   │                                #   per-step input/output checksums
+│   └── .prov/                       # per-step provenance sidecars
 ├── results/sequence_module/         # committed
 ├── results/structure_module/        # committed, incl. 7 AFDB PDBs
 ├── results/expression_module/       # committed
@@ -690,113 +717,72 @@ directory, and anything family-specific lives in `core`.
 
 ## 7. Running it
 
-### Module 1 — sequence
-
 ```bash
-conda env create -f environment.yml
-conda activate soyglobin
-python pipeline/run_local.py --skip-esm2          # ~11 s after references are cached
+snakemake -s workflow/Snakefile --cores 8 --use-conda
 ```
 
-The ESM2 stage needs torch and transformers, which are deliberately kept out
-of `environment.yml` so they don't constrain the bioconda solve:
+That is the whole pipeline: 24 file-producing rules over five stages, both
+conda environments resolved per-rule. The run order is no longer a thing to remember — it is a
+consequence of the declared file dependencies, and
 
 ```bash
-conda create -n esm2 -c conda-forge python=3.11 pytorch transformers "numpy<2" pandas
-conda activate esm2
-python pipeline/run_esm2_gpu.py     # reads ./globins.faa, writes ./out/
+snakemake -s workflow/Snakefile --cores 1 -n --reason
 ```
 
-Flags: `--force-fetch` re-downloads references, `--reuse-esm2` keeps an
-existing cosine matrix instead of recomputing, `--threads N`.
-`python pipeline/run_local.py --reuse-esm2` is the fastest full reproduction.
+answers "what is stale, and why" directly. Stage targets (`sequence`,
+`structure`, `expression`) and individual output files work as targets too.
 
-### Module 2 — structure
+`docs/PIPELINE.md` is the rule reference: every rule, the check policy table,
+the cache keys, the provenance chain, and the verification diff against the
+tables committed at `a2dfe7e`. `docs/PIPELINE_AUDIT.md` is the pre-refactor
+audit that motivated the structure — one block per step, with what was wrong
+with each.
+
+Two things worth knowing before the first run:
+
+- **Without `--use-conda`**, every rule runs in the active environment, which
+  works for all of them except `embed` — that one needs torch. Either use
+  `--use-conda`, or run it by hand in the `esm2` environment and let the
+  workflow pick up the output (`docs/PIPELINE.md` has the command).
+- **ESM2 weights** do not come from `huggingface.co` but from
+  `cas-server.xethub.hf.co` or `us.aws.cdn.hf.co`. Behind an egress allowlist,
+  allowing only `huggingface.co` fails at the weights step *after* the config
+  downloads, which looks like a corrupt cache rather than a network policy.
+  `HF_HUB_DISABLE_XET=1` forces the LFS route.
+
+### Pointing it at another family
 
 ```bash
-python pipeline/run_structure.py
+snakemake -s workflow/Snakefile --cores 8 --use-conda --configfile config/other_family.yaml
 ```
 
-Reads `results/sequence_module/` (family table + MAFFT alignment), writes
-`results/structure_module/`. Needs network for UniProt, AlphaFold DB and RCSB;
-everything fetched is cached under `work/structure/`, so re-runs are offline.
-Flags: `--template <PDB id>` (default 1BIN), `--cutoff <Å>` (default 5.0).
+`config/config.yaml` holds every family-specific value; nothing outside its
+`family:` block names a gene. The config is a hashed DAG input, so editing the
+family definition invalidates everything downstream of the family search rather
+than leaving a stale score table that looks fine. What does not generalise
+without code work: a reference genome whose ID conventions need more than the
+two configured regexes, and an expression atlas in a different format.
 
-### Module 3 — expression
+### Tests
 
 ```bash
-python pipeline/soy_globin_expression.py
+pytest -q tests/
 ```
 
-Downloads the five GSE226149 matrices into `data/expression/` on first run
-(**~1.2 GB**; existing files are kept, so re-runs are free) and writes
-`results/expression_module/`. Flags: `--datadir`, `--outdir`, `--no-fetch`
-(fail rather than download). Each library is loaded whole with
-`scipy.io.mmread` and summed over barcodes one at a time, so peak memory is
-the largest single matrix — it fits in 16 GB but is not streamed.
+37 tests on the invariants this repo has already been bitten by — canonical pair
+ordering, the label round trip, the `C(n, 2)` row count and shared key set
+across all four pair tables, the contracts rejecting five classes of malformed
+table, config validation rejecting seven classes of bad config, and the three
+statistics with hand-checkable answers. No network; milliseconds.
 
-The summed per-library counts are cached to
-`work/expression/pseudobulk_counts.csv.gz` (0.6 MB) on first run and reused
-afterwards, so the 1.2 GB pass happens once rather than once per question.
-Delete that file to force a rebuild.
+### Modal
 
-### Module 4 — integration
-
-```bash
-python pipeline/run_integration.py      # 0.4 s
-python pipeline/plot_integration.py     # the figure, separately
-```
-
-Reads the three pair tables plus `gene_pseudobulk_profiles.csv`, writes
-`results/integration_module/`. No network. `--alpha <x>` re-scores with a
-different weight on the molecular term (β is set to 1 − α); the committed
-outputs use α = 0.40. The plot script prints a geometric overlap check on its
-own text, so a layout regression shows up in the run log rather than in the
-figure.
-
-### Module 1 on Modal
-
-```bash
-conda activate modal      # the env that already has the Modal SDK
-modal run pipeline/soy_globin_modal.py                 # -> ./results
-modal run pipeline/soy_globin_modal.py --no-gpu
-modal run pipeline/soy_globin_modal.py --force-fetch
-```
-
-References are cached in the `soy-globin-data` Volume and ESM2 weights in
-`soy-globin-hf-cache`, so only the first run pays the download. The CPU
-phylogeny and the GPU embedding stages are dispatched concurrently. Modules 2
-and 3 have no Modal wrapper — neither needs one (see below).
-
-**If your Modal job containers run under an egress allowlist**, the ESM2 stage
-needs `huggingface.co` **and** `*.hf.co`. The weights never come from
-`huggingface.co` itself — they come from `cas-server.xethub.hf.co` (Xet) or
-`us.aws.cdn.hf.co` (LFS fallback). Allowing only the former fails at the
-weights step *after* the config has downloaded, which looks like a corrupt
-cache rather than a network policy. `HF_HUB_DISABLE_XET=1` forces the LFS
-route; the Rust Xet client ignores HTTP proxies, the LFS one doesn't.
-
-### Modal-worthy vs. local — revised against what actually ran
-
-| stage | plan said | what it needed |
-|---|---|---|
-| fetch references | Modal | either; 27 MB |
-| hmmsearch, 52,872 proteins | Modal | ~5 s on 8 cores — data locality, not compute |
-| MAFFT + IQ-TREE, 7 sequences | either | ~8 s local |
-| ESM2-650M embeddings | **Modal (GPU)** | the only stage with a real compute floor; ran on CPU here anyway |
-| module 2 structure | **Modal (ESMFold GPU)** | **local, 12.8 s** — AFDB had every model, no prediction needed |
-| module 3 expression | Modal if memory-bound | **local** — libraries are summed one at a time, so peak memory is one matrix, not the atlas |
-| pair classification | either | trivial |
-| module 4 integration | not planned | **local, 0.4 s** — 21 rows in, 21 rows out |
-
-For a family this size **nothing here actually requires remote dispatch**. That
-changes if the family grows (ESM2 on hundreds of sequences), if structures must
-be predicted rather than downloaded, or if module 4 needs the full cell × gene
-atlas in memory for cell-type clustering (§5.1) — that last one is the
-realistic Modal candidate remaining, and the constraint will be memory, not
-FLOPs.
-
----
+`pipeline/soy_globin_modal.py` remains in the tree, updated to the current
+signatures. Nothing in this pipeline requires remote dispatch — the whole run is
+well under a minute of compute once the references are cached, and the heaviest
+single step is one 250 MB sparse matrix in memory. The ESM2 embedding is the
+only step a GPU would meaningfully change, and §5.2 explains why doing so would
+alter the committed values in the fourth decimal for no gain here.
 
 ## 8. Time spent vs. the 8-hour budget
 
@@ -899,3 +885,341 @@ types. The one item that would consume a real budget, cell-type resolution
     factor cannot zero the product. Ordering is unaffected, but do not read
     `R_clade` as an absolute quantity or compare it across a different member
     set — recompute it if the clade changes.
+
+---
+
+## 10. Metric glossary
+
+Every column the pipeline emits, what it means, how it is computed, why it bears
+on *this* question, and where it stops being trustworthy.
+
+The question is narrow: **if one member of a pair were lost, would the other
+cover the loss?** That question splits in two, and the split is what the score's
+shape encodes.
+
+- **Molecular metrics ask whether the partner is CAPABLE** — does it have the
+  same fold, the same binding site, the same chemistry?
+- **Expression metrics ask whether the partner is PRESENT** — is it there, in
+  that tissue, in enough quantity to matter?
+
+`R` multiplies the two because either alone is insufficient. Two proteins that
+are 95% identical but never expressed in the same place cannot buffer each
+other, and two proteins co-expressed at identical levels cannot substitute if
+one has lost its heme pocket. A sum would let a high score on one side carry a
+pair that fails on the other; a product cannot.
+
+---
+
+### 10.1 Sequence
+
+**`pid_aligned`** — percent amino-acid identity between the two members.
+*Computed as* identities divided by the number of MAFFT alignment columns where
+**both** sequences have a residue (gap-versus-residue columns are excluded from
+both numerator and denominator). Taken from the same MSA as the tree, so
+identity and phylogeny cannot disagree.
+*Why it matters* — the first-order answer to "is the partner the same protein?".
+*Limitation* — **saturated within the focal clade**: 91.7–95.2% across the six
+focal pairs, against 42.8–95.2% over all 21. A metric with that little dynamic
+range cannot rank the pairs on its own. That saturation is the entire reason the
+other molecular axes exist.
+
+**`pid_shorter`** — identities divided by the **shorter ungapped sequence
+length** rather than by aligned columns.
+*Why it matters* — diagnostic only. It diverges from `pid_aligned` exactly when
+one member is truncated relative to the other, so a gap between the two columns
+is a signal that a length difference is doing work.
+*Limitation* — not a score term; it answers a question about the alignment, not
+about function.
+
+**`esm2_cosine_distance`** — `1 − cosine similarity` between the two members'
+ESM2-650M embeddings.
+*Computed as* mean-pooled final-layer representations from
+`facebook/esm2_t33_650M_UR50D`, averaged over **residue tokens only**
+(BOS/EOS/PAD masked before pooling, which matters because sequences of different
+length are batched together), then cosine distance. Computed from the
+**unaligned** sequences.
+*Why it matters* — it is the only molecular metric that does not go through the
+MSA, so it is the one that can disagree with the alignment. A language-model
+embedding is sensitive to substitutions the identity count treats as equal.
+*Limitation* — because it measures the same underlying thing as identity by
+different means, it is **averaged with identity into one axis** rather than added
+as a fourth independent feature. Treating it as independent would count sequence
+twice. It also has no units and no interpretable scale; only the ordering means
+anything.
+
+**`duplication_mode`** — `tandem` | `proximal` | `dispersed`.
+*Computed as* same `seqid` and ≤10 intervening protein-coding genes → `tandem`;
+same `seqid`, more than that but ≤1 Mb apart → `proximal`; otherwise
+`dispersed`. A cross-chromosome pair is always `dispersed`.
+*Why it matters* — reported as interpretive context, and **deliberately not a
+score term**. Assuming tandem duplicates are more functionally redundant is the
+hypothesis under test; scoring it would make the answer circular.
+*Limitation* — this is **adjacency, not synteny**. It counts genes and base
+pairs between two loci in one assembly; it does not establish that the two arose
+from the same duplication event, which needs a synteny analysis against an
+outgroup genome.
+
+**`n_intervening_genes`, `intergenic_bp`, `same_seqid`, `chrom_a`/`chrom_b`** —
+the raw measurements `duplication_mode` is derived from, kept so the threshold
+can be re-read without re-running.
+
+---
+
+### 10.2 Structure
+
+**`tm_score`** — TM-align template-modelling score, **normalised by the shorter
+chain**.
+*Why the shorter chain* — the conservative choice: it cannot be inflated by one
+protein being a fragment of the other. `tm_norm_a` and `tm_norm_b` are both
+emitted so the asymmetry is visible.
+*Why it matters* — the fold-level answer to "is the partner the same shape?".
+*Limitation* — **even more saturated than identity**: 0.9816–0.9976 within the
+focal clade. The globin fold is rigid and these are close paralogues, so this
+axis contributes almost no ranking power *here*. It is kept because it is the
+correct measurement to make, and on a family with genuine fold divergence it
+would carry real signal.
+
+**`rmsd`** — root-mean-square deviation of the superposed backbone.
+*Why it matters* — reported for interpretability.
+*Limitation* — **not a score term**, because it is length-sensitive and
+dominated by flexible termini: two structures with identical cores can differ in
+RMSD purely by how far their tails splay. TM-score exists precisely to remove
+that dependence, which is why TM-score is scored and RMSD is not.
+
+**`pocket_identity`** — percent identity restricted to the heme-binding pocket.
+**This is the load-bearing structural metric.**
+*Computed as* a four-step transfer, because AlphaFold models are **apo** — they
+have no ligand, so the pocket cannot be read off them:
+1. take a heme-bound crystal structure of the family (`1BIN`, soybean
+   leghemoglobin-a at 2.20 Å), and use the first chain carrying a `HEM` ligand;
+2. call a residue part of the pocket if **any** of its heavy atoms lies within
+   **5 Å** of **any** heme heavy atom — 23 residues in the committed run;
+3. map those crystal residue numbers onto MSA columns through the configured
+   reference member's row in the alignment (crystal numbering and the reference
+   transcript's numbering are not the same);
+4. compute percent identity between the two members over those columns.
+*Why it matters* — pocket residues set oxygen affinity, and **they come apart
+from overall identity within the clade** (Spearman ρ = 0.39 across the six focal
+pairs, against 0.85–0.94 collinearity among the raw molecular features over all
+21). Two members can be 95% identical overall and still differ where the
+chemistry happens. This is the axis that makes the molecular side informative
+rather than a restatement of identity.
+*Limitation* — it is a **contact definition, at one cutoff, from one crystal,
+transferred through an alignment**. A different template, a different cutoff, or
+a shifted alignment column gives a different residue set. The 5 Å cutoff is
+empirical, not derived. Independent support: 4 of 5 UniProt-annotated
+heme-binding sites for the reference member fall inside the transferred pocket —
+a check on the transfer, not its source.
+
+**`n_pocket_cols`** — how many of the mapped columns actually had a residue in
+both members. A pair scored over fewer columns is a weaker measurement, and this
+is how you see that.
+
+**`mean_plddt`, `len_delta`, `pid_model_vs_a4`, `model_is_a4_sequence`** —
+model-quality and reconciliation columns. AFDB models are keyed on the UniProt
+sequence, which is not always the assembly's primary transcript; six of seven
+are byte-identical here and the seventh is declared as a known exception rather
+than silently accepted.
+
+---
+
+### 10.3 Expression
+
+**`cpm_<GSM>`** — counts per million for one gene in one library.
+*Computed as* the sum of that gene's counts over **every barcode** in the
+library, divided by the library total, times 1e6. **No cell calling.**
+*Why no cell calling* — the sum over all droplets is deliberately treated as a
+bulk measurement. Ambient and cell-associated RNA both contribute, which is the
+point: calling cells would import a threshold that needs its own justification
+and would change the numbers.
+*Limitation* — it is bulk. Nothing here resolves which cell type the transcript
+came from, which is the main thing standing between this pipeline and a stronger
+answer.
+
+**`cpm_mean_<tissue>`** — mean CPM across the libraries of one tissue.
+
+**`tau_over_tissue_means`** — Yanai's tissue-specificity index over the tissue
+means, `Σ(1 − x_i/x_max)/(n − 1)`.
+*Why it matters* — a single number for "how concentrated is this gene's
+expression in one tissue?".
+*Limitation* — **with two tissues it reduces algebraically to
+`1 − x_min/x_max`**, which is a nodule-versus-root contrast wearing the name of a
+specificity index. It is emitted under an explicit caveat and must **not** be
+compared against published multi-tissue τ values, which are computed over many
+more tissues and are not the same quantity.
+
+**`spearman_profile`** — Spearman correlation of the two members' log1p-CPM
+profiles across libraries.
+*Status* — **emitted, degenerate, and excluded from the score.** It is exactly
+1.000 for all six focal pairs, because all four focal genes share one
+zero/nonzero pattern across the three root libraries, and a rank correlation
+over five points cannot see anything else. It is not a property of
+nodule-exclusive genes in general — GmLb5's three pairs span −0.335 to 0.894,
+so the statistic does vary once a member with a different expression pattern
+enters the comparison.
+*Why it is still emitted* — because the reader should be able to see that the
+obvious co-expression statistic carries no information at this resolution,
+rather than take that on trust. It is declared degenerate in the table contract
+so a consumer cannot use it by accident.
+
+**`log2fc_mean_all`, `log2fc_sd_all`, `log2fc_mean_<tissue>`,
+`log2fc_sd_<tissue>`** — mean and SD of the per-library log2 fold change.
+*Computed as* `log2((CPM_a + 1)/(CPM_b + 1))` per library, oriented **a over b**
+in the canonical `label_a`/`label_b` order, then averaged.
+*Why the pseudocount* — two of the three root libraries are at **exactly 0 CPM**
+for every family member, so an unregularised ratio is 0/0 there.
+*Limitation* — the pseudocount is negligible for the high-expressed focal genes
+(nodule CPM in the thousands) but **not** negligible for members near the
+detection floor (GmLb5 at 1.5–2.4 CPM, Hb1 below 0.5). Fold changes involving
+those are **regularised, not measured**. Separately, `log2fc_sd_all` is
+dominated by the between-tissue step rather than by variability in the ratio —
+it is not an error bar on the fold change.
+
+**`dose_ratio`** — smaller focal-tissue mean CPM over larger, in [0, 1].
+*Why it matters here specifically* — leghemoglobin's function is **oxygen
+buffering, which is stoichiometric**: the amount of protein present *is* the
+amount of function delivered. Concentration is not a proxy for activity here;
+it is the activity.
+*Limitation* — that argument is family-specific. For an enzyme operating with
+excess capacity, a 10-fold expression difference might mean nothing functional
+at all, and this term would be actively misleading. Do not carry it to another
+family without making the same argument.
+
+**`cover_a_by_b`, `cover_b_by_a`** — directional coverage.
+*Computed as* `min(CPM_b / CPM_a, 1)` and its mirror.
+*How to read it* — **indexed by the casualty**: `cover_a_by_b` asks "if **a** is
+the one lost, how much of its dose can **b** supply?". Capped at 1 because
+supplying more than the lost amount is still full coverage.
+*Why it matters* — it is the only asymmetric quantity in the whole score, and
+redundancy genuinely is asymmetric: a minor paralogue can be fully covered by a
+dominant one while the reverse fails. Note that
+`dose_ratio == min(cover_a_by_b, cover_b_by_a)`, so the symmetric score is
+exactly the **pessimistic direction** of the directional pair.
+*Limitation* — it assumes the survivor supplies **what it currently
+transcribes**. A real knockout frequently upregulates the remaining paralogue,
+so this is a **floor on buffering capacity, not a prediction of the mutant
+phenotype**.
+
+**`coexpression_overlap`, `detection_rate`** — **NA, with a reason carried in an
+adjacent `*_note` column.** Both are per-cell quantities and pseudobulk has no
+cells. They are kept visible as NA rather than dropped from the schema or
+replaced with a look-alike statistic, because a reader comparing this table
+against the design document should be able to see which quantity is missing and
+why.
+
+**`in_matrix`** — whether the gene appears in the series' feature list at all.
+One marker gene is absent from GSE226149 and returns `False` rather than zero;
+zero and absent are different claims.
+
+---
+
+### 10.4 Integration
+
+**`M_seq`, `M_fold`, `M_pocket`** — the three molecular sub-axes, each min-max
+normalised, each weighted **1/3**.
+- `M_seq` = mean of normalised `pid_aligned` and normalised ESM2 similarity
+  (`= −esm2_cosine_distance`)
+- `M_fold` = normalised `tm_score`
+- `M_pocket` = normalised `pocket_identity`
+
+*Why three axes and not four flat features* — the four raw molecular features
+are collinear across the full family (Spearman 0.85–0.94), so averaging them as
+equals would **count sequence twice**: identity and the ESM2 distance are two
+measurements of the same thing. Collapsing them to one axis leaves three
+genuinely different questions — same sequence, same fold, same binding site —
+and within the focal clade identity and pocket identity come apart, which is
+where the discrimination lives.
+
+**`M`** — the weighted mean of the three axes.
+*Normalisation scope* — min-max over **all 21 pairs**, so `M` sits on one
+absolute scale and a value near 1 means "as molecularly similar as anything in
+this family". The consequence is real: **adding or removing a family member
+rescales every score.** That is correct behaviour rather than a bug, and it is
+exactly why the family definition is a hashed config input rather than a
+constant in the source — a change to it must invalidate every downstream table.
+
+**`E`** — `tissue_overlap × dose_ratio`.
+Both factors are already in [0, 1] with a meaningful zero, so neither is
+normalised; normalising them would destroy the meaning of the zero.
+
+**`tissue_overlap`** — histogram intersection of the two members' tissue-mean
+CPM profiles after each is normalised to sum 1; `Σ min(p_i, q_i)`.
+*Reads as* 1.0 = the two genes place their transcript in the same tissues in the
+same proportions; 0.0 = disjoint tissues.
+*Why it replaced the original design* — the plan called for a **binary
+co-expression gate**, which with only two tissues is either always open or
+always shut and therefore carries no information. This keeps the gate's logic —
+co-location is a precondition for buffering — on a continuous scale.
+
+**`R_family`** — `M^α · E^β`, with **α = 0.40** and β = 1 − α.
+*Why a product and not a sum* — a 95%-identical pair that is never co-expressed
+is not functionally redundant, because neither member can buffer the other's
+loss. An additive score would award that pair a high value on the strength of
+sequence alone; a product cannot.
+*Why β > α* — **measured, not assumed.** The molecular axes are saturated
+within this clade (identity 91.7–95.2%, TM 0.9816–0.9976) while dose ratio spans
+0.26–0.79 across the same six pairs. The weight follows the range where the
+variation actually is. `weight_sensitivity.csv` sweeps α from 0 to 1 in 21 steps
+so the reader can see how much the choice buys.
+
+**`R_clade`** — the same score with `M` and `E` each rescaled across the focal
+pairs only, floored at 0.05.
+*Reads as* a **relative ranking inside the clade**: the lowest value means
+"lowest of the six observed", not "not redundant". `R_family` is the absolute
+reading; `R_clade` is the within-clade one, and they answer different questions.
+*Why the floor* — a plain min-max zero in either factor would zero the product
+and collapse pairs that genuinely differ. It changes no ordering.
+
+**`R_a_covered_by_b`, `R_b_covered_by_a`** — the same formula with the
+directional coverage fraction replacing the symmetric `dose_ratio`.
+*The important structural fact* — `M` and `tissue_overlap` are both symmetric,
+so **the entire directional signal is the abundance ratio, damped by β.** The
+directional scores are not an independent line of evidence; they are the
+expression asymmetry, passed through the same exponent.
+
+**`pair_class`** — `focal-focal` | `focal-other` | `other-other`, derived from
+the sequence module's `both_focal` flag rather than from gene symbols, because
+symbols do not distinguish ingroup from outgroup.
+
+**`alpha_M`, `beta_E`** — the weights the row was actually scored with, carried
+in the table so a CSV read in isolation cannot be misinterpreted.
+
+---
+
+### 10.5 What the score cannot tell you
+
+**It cannot name the single most redundant pair.** The top two focal pairs are
+separated by 0.011 in `R_family` and they **swap order between α = 0.50 and
+α = 0.55** on the swept grid, inside the range the α sweep explores and close to
+the committed α = 0.40. The identity of the top pair is therefore
+not a supported claim, and the pipeline records it under the `report` policy —
+measured, logged, with **no pass condition attached**. Any statement of the form
+"pair X is the most redundant" is reading past the resolution of the data.
+
+**What the results do support:**
+
+1. **Focal/outgroup separation** — the six focal pairs separate cleanly from the
+   other fifteen (checked with an explicit pass condition that fails the run).
+2. **The direction of coverage within each pair** — for every focal pair, the
+   lower-expressed member is the better-covered one, which is what the
+   directional scores should show if they are wired correctly, and is the check
+   that would catch them being wired backwards.
+
+**What is out of scope entirely:**
+
+- **Cell-type resolution.** Every expression term is a tissue-level bulk
+  measurement. Nodules contain infected and uninfected cells and this pipeline
+  cannot tell them apart, so "co-expressed in nodule" is a weaker statement than
+  "co-expressed in the same cells".
+- **Phenotype prediction.** `R` is a ranking of *prior* plausibility that one
+  member covers another, built from steady-state transcript abundance. It does
+  not model transcriptional compensation, protein stability, or the nonlinearity
+  between oxygen-buffering capacity and nitrogen fixation.
+- **Synteny and duplication history.** `duplication_mode` is adjacency in one
+  assembly.
+- **Anything about the tree.** The phylogeny is a terminal branch of the DAG:
+  reported, never read by the score. Internal support within the focal clade is
+  SH-aLRT 31.1–45.4 / UFBoot 39–47, because four sequences at >91% identity
+  over 162 columns do not contain enough signal to resolve their branching
+  order. The score does not depend on
+  that resolution, and no result here should be read as if it did.

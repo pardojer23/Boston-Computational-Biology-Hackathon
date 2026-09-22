@@ -1,0 +1,735 @@
+{
+  "config_digest": "eaa6afbc423e",
+  "config_source": "config/config.yaml",
+  "environment": {
+    "Bio": "1.88",
+    "numpy": "2.4.6",
+    "pandas": "3.0.6",
+    "platform": "macOS-13.7.8-x86_64-i386-64bit",
+    "python": "3.11.16",
+    "scipy": "1.17.1"
+  },
+  "family": {
+    "focal_digest": "232d86a072da",
+    "focal_genes": {
+      "Glyma.10G198800": "Lbc3",
+      "Glyma.10G199000": "Lbc1",
+      "Glyma.10G199100": "Lba",
+      "Glyma.20G191200": "Lbc2"
+    },
+    "name": "leghemoglobin",
+    "species": "Glycine max"
+  },
+  "generated_utc": "2026-09-22T19:17:30Z",
+  "git_commit": "a2dfe7e88ceded246d4cae4e195a6afb0fe91322",
+  "n_steps_recorded": 21,
+  "run_id": "20260922T191730Z",
+  "stale_inputs": [],
+  "steps": {
+    "align": {
+      "checks": {
+        "alignment_columns": {
+          "expected": 162,
+          "n_columns": 162,
+          "passed": true,
+          "policy": "warn"
+        }
+      },
+      "config_digest": "eaa6afbc423e",
+      "config_source": "config/config.yaml",
+      "generated_utc": "2026-09-22T19:16:40Z",
+      "inputs_sha256": {
+        "results/sequence_module/globins.faa": "285bf1079d363a0c45822d2beed9a4a428a76340266ac0a8025bfc77af40f6ca"
+      },
+      "n_columns": 162,
+      "n_sequences": 7,
+      "outputs_sha256": {
+        "work/phylo/globins.aln.faa": "894668d41dbf9e7af733311a6713de72cf6305355027a14eec53f78abd0e4dab"
+      },
+      "params": {
+        "args": [
+          "--localpair",
+          "--maxiterate",
+          "1000"
+        ],
+        "cfg_section": "e6a70d86c4a5"
+      },
+      "python": "3.11.16",
+      "step": "align",
+      "tools": {
+        "mafft": "v7.526 (2024/Apr/26)"
+      }
+    },
+    "annotate_tree": {
+      "config_digest": "eaa6afbc423e",
+      "config_source": "config/config.yaml",
+      "generated_utc": "2026-09-22T19:02:54Z",
+      "inputs_sha256": {
+        "results/sequence_module/gene_context.csv": "064a1688f30f7fb225208124452f02074fe517356366f038a24ba3bb7ce7147f",
+        "results/sequence_module/globins.treefile": "e512d393dd6d7bdd6fab07d9e051d1acad427d0ff75fcc7607b4cbb6d3c6d46e"
+      },
+      "outputs_sha256": {
+        "results/sequence_module/globins.annotated.nwk": "bc2dfc9de80aca1eb1c0d22fa324e1c8b8cfdaff0eb8735731eb2cbc9a352fc3"
+      },
+      "params": {},
+      "python": "3.11.16",
+      "step": "annotate_tree",
+      "tools": {}
+    },
+    "classify_pairs": {
+      "config_digest": "eaa6afbc423e",
+      "config_source": "config/config.yaml",
+      "counts": {
+        "dispersed": 14,
+        "tandem": 7
+      },
+      "generated_utc": "2026-09-22T19:02:53Z",
+      "inputs_sha256": {
+        "data/reference/gene_models_exons.gff3.gz": "d18e497767e4eaf5020993e2eb18b24839d7fafe832f6960a9b9a93b977f0d93",
+        "results/sequence_module/esm2_cosine_distance_matrix.csv": "1557a89447e984c008c81063a2988156706867d5b7833981f9c5e726e4215709",
+        "results/sequence_module/globin_family_members.csv": "5c14b993da3a74d443faa4affc967e6f6cdb6de9892c2429cbefece9663c1419",
+        "results/sequence_module/pairwise_identity_pairs.csv": "7ea30eead181b4f7e3caef30e4c15e7a019548dfef6d25be55e3ee6843682d27"
+      },
+      "outputs_sha256": {
+        "results/sequence_module/gene_context.csv": "064a1688f30f7fb225208124452f02074fe517356366f038a24ba3bb7ce7147f",
+        "results/sequence_module/paralog_pairs.csv": "d3338bcb1c872e9b1e1fd881374b57ea611c166837456444481788ff4e98ecd1"
+      },
+      "params": {
+        "cfg_section": "4898a45d9ba0",
+        "is_score_term": false,
+        "proximal_max_bp": 1000000,
+        "tandem_max_intervening_genes": 10
+      },
+      "python": "3.11.16",
+      "step": "classify_pairs",
+      "tools": {}
+    },
+    "cutoff_check": {
+      "checks": {
+        "family_cutoff_gap": {
+          "best_rejected_bitscore": 13.5,
+          "best_rejected_protein": "glyma.Wm82.gnm4.ann1.Glyma.17G033600.3",
+          "bitscore_gap": 49.7,
+          "min_required": 25.0,
+          "n_accepted": 7,
+          "n_hits_relaxed": 10,
+          "passed": true,
+          "policy": "fail",
+          "relaxed_evalue": 10.0,
+          "weakest_accepted_bitscore": 63.2
+        }
+      },
+      "config_digest": "eaa6afbc423e",
+      "config_source": "config/config.yaml",
+      "generated_utc": "2026-09-22T19:16:38Z",
+      "inputs_sha256": {
+        "data/reference/PF00042.hmm": "7b300a21130b823627b09dd11fc5a76a7ca49515504c33493d140bcdeda93db3",
+        "data/reference/proteins_primary.faa.gz": "603603800a4b1966868214159e892c44655c69ffc690f676732ed1c204c8447a",
+        "results/sequence_module/globin_family_members.csv": "5c14b993da3a74d443faa4affc967e6f6cdb6de9892c2429cbefece9663c1419"
+      },
+      "outputs_sha256": {
+        "results/sequence_module/cutoff_check.json": "0d503a15a99975b0af3a2024ccb1dbfa11792e13fec13beae08aea4136378d9a"
+      },
+      "params": {
+        "relaxed_evalue": 10
+      },
+      "python": "3.11.16",
+      "step": "cutoff_check",
+      "tools": {}
+    },
+    "expression": {
+      "config_digest": "eaa6afbc423e",
+      "config_source": "config/config.yaml",
+      "generated_utc": "2026-09-22T19:17:06Z",
+      "inputs_sha256": {
+        "results/sequence_module/globin_family_members.csv": "5c14b993da3a74d443faa4affc967e6f6cdb6de9892c2429cbefece9663c1419",
+        "work/expression/pseudobulk_counts.csv.gz": "ddf06c544210b46e7e7a2a375fbfc843cae6ae08ae5e9b403ab0d6fe504296f0"
+      },
+      "markers_absent": [
+        "Glyma.10G121524"
+      ],
+      "n_pairs": 21,
+      "outputs_sha256": {
+        "results/expression_module/expression_pairs.csv": "87a5110f770882b66e46c68927ba7312e1bdc78fb7fb7347c0abeb9150fe2398",
+        "results/expression_module/gene_pseudobulk_profiles.csv": "c806b45e90cf57a56b61e2ac1343148216c325932baae06984c366959506f0a6",
+        "results/expression_module/manifest.json": "2796107055cb3a5f8ba59605174debb86c7ecd1e3d72ed6e3c084abe5f2248c3",
+        "results/expression_module/marker_profiles.csv": "5feb86c25bfaf45da9aee497ab073962d3ea08abe2c4304241e4d9bb4787e31b"
+      },
+      "params": {
+        "cfg_section": "6c79d87f28f7",
+        "resolution": "pseudobulk"
+      },
+      "python": "3.11.16",
+      "step": "expression",
+      "tools": {}
+    },
+    "fetch_afdb_A0A0R0HW51": {
+      "afdb": {
+        "afdb_entry": "AF-A0A0R0HW51-F1",
+        "afdb_model_created": "2025-08-01",
+        "afdb_version": 6,
+        "frac_plddt_very_low": 0.077,
+        "mean_plddt": 81.62,
+        "pdb_path": "work/structure/afdb/AF-A0A0R0HW51-F1.pdb",
+        "pdb_url": "https://alphafold.ebi.ac.uk/files/AF-A0A0R0HW51-F1-model_v6.pdb",
+        "uniprot": "A0A0R0HW51"
+      },
+      "checks": {
+        "afdb_model_version": {
+          "acc": "A0A0R0HW51",
+          "expected": 6,
+          "passed": true,
+          "policy": "warn",
+          "version": 6
+        }
+      },
+      "config_digest": "eaa6afbc423e",
+      "config_source": "config/config.yaml",
+      "generated_utc": "2026-09-22T19:02:59Z",
+      "inputs_sha256": {},
+      "outputs_sha256": {
+        "work/structure/afdb/AF-A0A0R0HW51-F1.meta.json": "a273112b7b7e1d7ee1da3a74eaea36e7df62eb2319a83ba87b3a462d16a6030b",
+        "work/structure/afdb/AF-A0A0R0HW51-F1.pdb": "40fb39844f51502353c5c20e648fd3edb8c946035bdfef7a90e33c4b16cf415e"
+      },
+      "params": {
+        "acc": "A0A0R0HW51",
+        "api": "https://alphafold.ebi.ac.uk/api/prediction/{acc}"
+      },
+      "python": "3.11.16",
+      "step": "fetch_afdb_A0A0R0HW51",
+      "tools": {}
+    },
+    "fetch_afdb_I1LJI1": {
+      "afdb": {
+        "afdb_entry": "AF-I1LJI1-F1",
+        "afdb_model_created": "2025-08-01",
+        "afdb_version": 6,
+        "frac_plddt_very_low": 0.013,
+        "mean_plddt": 94.38,
+        "pdb_path": "work/structure/afdb/AF-I1LJI1-F1.pdb",
+        "pdb_url": "https://alphafold.ebi.ac.uk/files/AF-I1LJI1-F1-model_v6.pdb",
+        "uniprot": "I1LJI1"
+      },
+      "checks": {
+        "afdb_model_version": {
+          "acc": "I1LJI1",
+          "expected": 6,
+          "passed": true,
+          "policy": "warn",
+          "version": 6
+        }
+      },
+      "config_digest": "eaa6afbc423e",
+      "config_source": "config/config.yaml",
+      "generated_utc": "2026-09-22T19:02:57Z",
+      "inputs_sha256": {},
+      "outputs_sha256": {
+        "work/structure/afdb/AF-I1LJI1-F1.meta.json": "907c23ba5c9a5b74e52c6f838345d34473da10e4445af126992fcf21d9c630e4",
+        "work/structure/afdb/AF-I1LJI1-F1.pdb": "ad454a98929784b8ebe8672da6d63566167d07ab638928490d055f50479ce9ca"
+      },
+      "params": {
+        "acc": "I1LJI1",
+        "api": "https://alphafold.ebi.ac.uk/api/prediction/{acc}"
+      },
+      "python": "3.11.16",
+      "step": "fetch_afdb_I1LJI1",
+      "tools": {}
+    },
+    "fetch_afdb_P02235": {
+      "afdb": {
+        "afdb_entry": "AF-P02235-F1",
+        "afdb_model_created": "2025-08-01",
+        "afdb_version": 6,
+        "frac_plddt_very_low": 0.0,
+        "mean_plddt": 95.75,
+        "pdb_path": "work/structure/afdb/AF-P02235-F1.pdb",
+        "pdb_url": "https://alphafold.ebi.ac.uk/files/AF-P02235-F1-model_v6.pdb",
+        "uniprot": "P02235"
+      },
+      "checks": {
+        "afdb_model_version": {
+          "acc": "P02235",
+          "expected": 6,
+          "passed": true,
+          "policy": "warn",
+          "version": 6
+        }
+      },
+      "config_digest": "eaa6afbc423e",
+      "config_source": "config/config.yaml",
+      "generated_utc": "2026-09-22T19:02:57Z",
+      "inputs_sha256": {},
+      "outputs_sha256": {
+        "work/structure/afdb/AF-P02235-F1.meta.json": "430684c6db2673a97ff21b41e62ffad9ef198d8a63c8d95577be41b3e41e33f9",
+        "work/structure/afdb/AF-P02235-F1.pdb": "e8ece86ae1a0d742131fbcc0705607bc91774c2c5588e1b1c07855989d36da61"
+      },
+      "params": {
+        "acc": "P02235",
+        "api": "https://alphafold.ebi.ac.uk/api/prediction/{acc}"
+      },
+      "python": "3.11.16",
+      "step": "fetch_afdb_P02235",
+      "tools": {}
+    },
+    "fetch_afdb_P02236": {
+      "afdb": {
+        "afdb_entry": "AF-P02236-F1",
+        "afdb_model_created": "2025-08-01",
+        "afdb_version": 6,
+        "frac_plddt_very_low": 0.0,
+        "mean_plddt": 95.69,
+        "pdb_path": "work/structure/afdb/AF-P02236-F1.pdb",
+        "pdb_url": "https://alphafold.ebi.ac.uk/files/AF-P02236-F1-model_v6.pdb",
+        "uniprot": "P02236"
+      },
+      "checks": {
+        "afdb_model_version": {
+          "acc": "P02236",
+          "expected": 6,
+          "passed": true,
+          "policy": "warn",
+          "version": 6
+        }
+      },
+      "config_digest": "eaa6afbc423e",
+      "config_source": "config/config.yaml",
+      "generated_utc": "2026-09-22T19:02:59Z",
+      "inputs_sha256": {},
+      "outputs_sha256": {
+        "work/structure/afdb/AF-P02236-F1.meta.json": "e5e9ef9f47bc9a1f2ecab057707e2b50b38a78605b4eb468045050e0a4b4bf8b",
+        "work/structure/afdb/AF-P02236-F1.pdb": "7bb46cf1c704182d48ca40faf9db201323ee7093129773520df78b2adb21d07a"
+      },
+      "params": {
+        "acc": "P02236",
+        "api": "https://alphafold.ebi.ac.uk/api/prediction/{acc}"
+      },
+      "python": "3.11.16",
+      "step": "fetch_afdb_P02236",
+      "tools": {}
+    },
+    "fetch_afdb_P02237": {
+      "afdb": {
+        "afdb_entry": "AF-P02237-F1",
+        "afdb_model_created": "2025-08-01",
+        "afdb_version": 6,
+        "frac_plddt_very_low": 0.0,
+        "mean_plddt": 96.06,
+        "pdb_path": "work/structure/afdb/AF-P02237-F1.pdb",
+        "pdb_url": "https://alphafold.ebi.ac.uk/files/AF-P02237-F1-model_v6.pdb",
+        "uniprot": "P02237"
+      },
+      "checks": {
+        "afdb_model_version": {
+          "acc": "P02237",
+          "expected": 6,
+          "passed": true,
+          "policy": "warn",
+          "version": 6
+        }
+      },
+      "config_digest": "eaa6afbc423e",
+      "config_source": "config/config.yaml",
+      "generated_utc": "2026-09-22T19:03:00Z",
+      "inputs_sha256": {},
+      "outputs_sha256": {
+        "work/structure/afdb/AF-P02237-F1.meta.json": "3329d89909f29177ca997f8f8566b1fd6bf46ccb6f398888c4cfa0028f9b02c0",
+        "work/structure/afdb/AF-P02237-F1.pdb": "8ae40b37483054ce9e9f85e4b9114b4047bd3a88b4ad7f756b06d1d8e5a61cba"
+      },
+      "params": {
+        "acc": "P02237",
+        "api": "https://alphafold.ebi.ac.uk/api/prediction/{acc}"
+      },
+      "python": "3.11.16",
+      "step": "fetch_afdb_P02237",
+      "tools": {}
+    },
+    "fetch_afdb_P02238": {
+      "afdb": {
+        "afdb_entry": "AF-P02238-F1",
+        "afdb_model_created": "2025-08-01",
+        "afdb_version": 6,
+        "frac_plddt_very_low": 0.0,
+        "mean_plddt": 96.5,
+        "pdb_path": "work/structure/afdb/AF-P02238-F1.pdb",
+        "pdb_url": "https://alphafold.ebi.ac.uk/files/AF-P02238-F1-model_v6.pdb",
+        "uniprot": "P02238"
+      },
+      "checks": {
+        "afdb_model_version": {
+          "acc": "P02238",
+          "expected": 6,
+          "passed": true,
+          "policy": "warn",
+          "version": 6
+        }
+      },
+      "config_digest": "eaa6afbc423e",
+      "config_source": "config/config.yaml",
+      "generated_utc": "2026-09-22T19:02:57Z",
+      "inputs_sha256": {},
+      "outputs_sha256": {
+        "work/structure/afdb/AF-P02238-F1.meta.json": "6f86d0d1f39ea5b8f8187f20e8bd9c7b197b29fbc3503ed594061dfc905fa74b",
+        "work/structure/afdb/AF-P02238-F1.pdb": "04e84fb56a0b0bff94f4a248e38b4b67411c3555848f6f685fc18797988a522a"
+      },
+      "params": {
+        "acc": "P02238",
+        "api": "https://alphafold.ebi.ac.uk/api/prediction/{acc}"
+      },
+      "python": "3.11.16",
+      "step": "fetch_afdb_P02238",
+      "tools": {}
+    },
+    "fetch_afdb_Q42785": {
+      "afdb": {
+        "afdb_entry": "AF-Q42785-F1",
+        "afdb_model_created": "2025-08-01",
+        "afdb_version": 6,
+        "frac_plddt_very_low": 0.031,
+        "mean_plddt": 93.81,
+        "pdb_path": "work/structure/afdb/AF-Q42785-F1.pdb",
+        "pdb_url": "https://alphafold.ebi.ac.uk/files/AF-Q42785-F1-model_v6.pdb",
+        "uniprot": "Q42785"
+      },
+      "checks": {
+        "afdb_model_version": {
+          "acc": "Q42785",
+          "expected": 6,
+          "passed": true,
+          "policy": "warn",
+          "version": 6
+        }
+      },
+      "config_digest": "eaa6afbc423e",
+      "config_source": "config/config.yaml",
+      "generated_utc": "2026-09-22T19:03:00Z",
+      "inputs_sha256": {},
+      "outputs_sha256": {
+        "work/structure/afdb/AF-Q42785-F1.meta.json": "845deb2198a75598582142f52e0b3a7bfc09dece6f649a1e126755ab54e35cbe",
+        "work/structure/afdb/AF-Q42785-F1.pdb": "33ab101e8aa66a755e8fb9de9cfca465400130de0866fa3aad9156e8c0baf63c"
+      },
+      "params": {
+        "acc": "Q42785",
+        "api": "https://alphafold.ebi.ac.uk/api/prediction/{acc}"
+      },
+      "python": "3.11.16",
+      "step": "fetch_afdb_Q42785",
+      "tools": {}
+    },
+    "identity": {
+      "config_digest": "eaa6afbc423e",
+      "config_source": "config/config.yaml",
+      "generated_utc": "2026-09-22T19:16:41Z",
+      "inputs_sha256": {
+        "work/phylo/globins.aln.faa": "894668d41dbf9e7af733311a6713de72cf6305355027a14eec53f78abd0e4dab"
+      },
+      "n_pairs": 21,
+      "outputs_sha256": {
+        "results/sequence_module/pairwise_identity_matrix.csv": "19cf76fff6139b337e2d1a9f5cce901b0a6e8a876ac5f1e850058b7a5ee484af",
+        "results/sequence_module/pairwise_identity_pairs.csv": "7ea30eead181b4f7e3caef30e4c15e7a019548dfef6d25be55e3ee6843682d27"
+      },
+      "params": {},
+      "python": "3.11.16",
+      "step": "identity",
+      "tools": {}
+    },
+    "integration": {
+      "config_digest": "eaa6afbc423e",
+      "config_source": "config/config.yaml",
+      "generated_utc": "2026-09-22T19:17:29Z",
+      "inputs_sha256": {
+        "results/expression_module/expression_pairs.csv": "87a5110f770882b66e46c68927ba7312e1bdc78fb7fb7347c0abeb9150fe2398",
+        "results/expression_module/gene_pseudobulk_profiles.csv": "c806b45e90cf57a56b61e2ac1343148216c325932baae06984c366959506f0a6",
+        "results/sequence_module/paralog_pairs.csv": "d3338bcb1c872e9b1e1fd881374b57ea611c166837456444481788ff4e98ecd1",
+        "results/structure_module/structure_pairs.csv": "2ee29d8c397768ff0eef4bf8d9ece19f3e93d93e20a4f4db9197c47cb8631b14"
+      },
+      "outputs_sha256": {
+        "results/integration_module/manifest.json": "2d21f3e07f9f74e6e08cf41eafd9d789fdc9b434ac0684e52730141b3fd12367",
+        "results/integration_module/redundancy_scores.csv": "a7704dd75cc1175c4168bfb821e786002c6dde709c3c3b4541199dd40537ef93",
+        "results/integration_module/weight_sensitivity.csv": "c2b1172701d5bf5655067c0365b96674bc992d4a4a935f157ff9cf7677c2172a"
+      },
+      "params": {
+        "alpha_M": 0.4,
+        "beta_E": 0.6,
+        "cfg_section": "ce0ccb16dc0f",
+        "clade_floor": 0.05,
+        "m_axis_weights": {
+          "fold": 0.3333333333333333,
+          "pocket": 0.3333333333333333,
+          "seq": 0.3333333333333333
+        }
+      },
+      "python": "3.11.16",
+      "step": "integration",
+      "tools": {},
+      "validation_checks": {
+        "directional_coverage_abundance": {
+          "abundance_column": "cpm_mean_nodule",
+          "agreeing": 6,
+          "pairs_tested": 6,
+          "passed": true,
+          "policy": "fail"
+        },
+        "focal_outgroup_separation": {
+          "focal_min_R": 0.4302018791499305,
+          "n_focal_pairs": 6,
+          "n_other_pairs": 15,
+          "other_max_R": 0.13045037164467393,
+          "passed": true,
+          "policy": "fail"
+        },
+        "pair_join_completeness": {
+          "expected": 21,
+          "n_members": 7,
+          "n_pairs": 21,
+          "passed": true,
+          "policy": "fail"
+        },
+        "symmetric_ranking_top": {
+          "margin": 0.01084513214722016,
+          "policy": "report",
+          "runner_up": "Glyma.10G198800_Lbc3|Glyma.20G191200_Lbc2",
+          "runner_up_R_family": 0.8389623479617965,
+          "top_focal_R_family": 0.8498074801090166,
+          "top_focal_pair": "Glyma.10G198800_Lbc3|Glyma.10G199000_Lbc1"
+        }
+      }
+    },
+    "pocket_residues": {
+      "checks": {
+        "pocket_uniprot_crosscheck": {
+          "accession": "P02238",
+          "n_inside_pocket": 4,
+          "n_sites": 5,
+          "passed": true,
+          "policy": "warn",
+          "sites": [
+            {
+              "description": "",
+              "ligand": "heme b",
+              "ligand_part": null,
+              "position": 46
+            },
+            {
+              "description": "",
+              "ligand": "O2",
+              "ligand_part": null,
+              "position": 62
+            },
+            {
+              "description": "",
+              "ligand": "heme b",
+              "ligand_part": null,
+              "position": 65
+            },
+            {
+              "description": "proximal binding residue",
+              "ligand": "heme b",
+              "ligand_part": "Fe",
+              "position": 93
+            },
+            {
+              "description": "",
+              "ligand": "heme b",
+              "ligand_part": null,
+              "position": 96
+            }
+          ]
+        }
+      },
+      "config_digest": "eaa6afbc423e",
+      "config_source": "config/config.yaml",
+      "generated_utc": "2026-09-22T19:02:57Z",
+      "inputs_sha256": {
+        "results/sequence_module/globins.aln.faa": "894668d41dbf9e7af733311a6713de72cf6305355027a14eec53f78abd0e4dab",
+        "results/sequence_module/globins.faa": "285bf1079d363a0c45822d2beed9a4a428a76340266ac0a8025bfc77af40f6ca",
+        "results/structure_module/uniprot_accessions.csv": "c9a77a1e72a45da0ac20e1ee7ea220b1385c54e1d63174d66a70b165f39bb6f6",
+        "work/structure/templates/pocket_1BIN_HEM_5.0.json": "e8aa6bc04ed316686277dbfa6e89c8b6dd0c2df093f1ce21a3d1c6e6212e2e54"
+      },
+      "n_alignment_columns": 23,
+      "outputs_sha256": {
+        "results/structure_module/pocket_residues.csv": "2e17d7ad6e122b626f2bf2b116b0b146e9bd4e378fafaa3ecb80e95aaf75c6a4",
+        "work/structure/pocket_columns.json": "b0fbda61a84bc5878e4eba91cee4e9e171254e2f597340dfa127651c43c7a82d"
+      },
+      "params": {
+        "reference_member": "Lba"
+      },
+      "python": "3.11.16",
+      "step": "pocket_residues",
+      "tools": {},
+      "unmappable_resnums": []
+    },
+    "pocket_template": {
+      "chain": "A",
+      "config_digest": "eaa6afbc423e",
+      "config_source": "config/config.yaml",
+      "generated_utc": "2026-09-22T19:16:41Z",
+      "inputs_sha256": {},
+      "n_pocket_residues": 23,
+      "outputs_sha256": {
+        "work/structure/templates/pocket_1BIN_HEM_5.0.json": "e8aa6bc04ed316686277dbfa6e89c8b6dd0c2df093f1ce21a3d1c6e6212e2e54"
+      },
+      "params": {
+        "cfg_section": "251d38d45f11",
+        "cutoff_a": 5.0,
+        "ligand": "HEM",
+        "template_pdb": "1BIN"
+      },
+      "python": "3.11.16",
+      "step": "pocket_template",
+      "tools": {}
+    },
+    "select_family": {
+      "config_digest": "eaa6afbc423e",
+      "config_source": "config/config.yaml",
+      "generated_utc": "2026-09-22T19:16:37Z",
+      "inputs_sha256": {
+        "data/reference/PF00042.hmm": "7b300a21130b823627b09dd11fc5a76a7ca49515504c33493d140bcdeda93db3",
+        "data/reference/proteins_primary.faa.gz": "603603800a4b1966868214159e892c44655c69ffc690f676732ed1c204c8447a"
+      },
+      "n_focal_rescued": 0,
+      "n_hits": 7,
+      "n_members": 7,
+      "n_proteins_searched": 52872,
+      "outputs_sha256": {
+        "results/sequence_module/globin_family_members.csv": "5c14b993da3a74d443faa4affc967e6f6cdb6de9892c2429cbefece9663c1419",
+        "results/sequence_module/globins.faa": "285bf1079d363a0c45822d2beed9a4a428a76340266ac0a8025bfc77af40f6ca"
+      },
+      "params": {
+        "accession": "PF00042",
+        "cfg_section": "1b4f49870328",
+        "threshold": "cut_ga"
+      },
+      "python": "3.11.16",
+      "step": "select_family",
+      "tools": {
+        "hmmsearch": "HMMER 3.4 (Aug 2023); http://hmmer.org/"
+      }
+    },
+    "structure_pairs": {
+      "config_digest": "eaa6afbc423e",
+      "config_source": "config/config.yaml",
+      "generated_utc": "2026-09-22T19:03:02Z",
+      "inputs_sha256": {
+        "results/sequence_module/globins.aln.faa": "894668d41dbf9e7af733311a6713de72cf6305355027a14eec53f78abd0e4dab",
+        "results/structure_module/structures.csv": "ad33cb5306639cdea6842a02441277aa9f67bfb0c7c72b63e32700aff48b72bc",
+        "work/structure/pocket_columns.json": "b0fbda61a84bc5878e4eba91cee4e9e171254e2f597340dfa127651c43c7a82d"
+      },
+      "outputs_sha256": {
+        "results/structure_module/structure_pairs.csv": "2ee29d8c397768ff0eef4bf8d9ece19f3e93d93e20a4f4db9197c47cb8631b14"
+      },
+      "params": {
+        "n_pocket_cols": 23,
+        "tm_score_convention": "normalised by the shorter chain"
+      },
+      "python": "3.11.16",
+      "step": "structure_pairs",
+      "tm_score_range": [
+        0.7446,
+        0.9976
+      ],
+      "tools": {
+        "tmtools": "0.3.0"
+      }
+    },
+    "structures": {
+      "checks": {
+        "model_vs_reference_sequence": {
+          "differing": [
+            {
+              "label": "Glyma.10G198900_GmLb5",
+              "len_delta": 17,
+              "pid_model_vs_a4": 100.0
+            }
+          ],
+          "exempted": {},
+          "max_len_delta": 20,
+          "min_identity": 99.0,
+          "passed": true,
+          "policy": "warn",
+          "unexplained": []
+        }
+      },
+      "config_digest": "eaa6afbc423e",
+      "config_source": "config/config.yaml",
+      "generated_utc": "2026-09-22T19:03:01Z",
+      "inputs_sha256": {
+        "results/sequence_module/globins.faa": "285bf1079d363a0c45822d2beed9a4a428a76340266ac0a8025bfc77af40f6ca",
+        "results/structure_module/uniprot_accessions.csv": "c9a77a1e72a45da0ac20e1ee7ea220b1385c54e1d63174d66a70b165f39bb6f6",
+        "work/structure/afdb/AF-A0A0R0HW51-F1.meta.json": "a273112b7b7e1d7ee1da3a74eaea36e7df62eb2319a83ba87b3a462d16a6030b",
+        "work/structure/afdb/AF-I1LJI1-F1.meta.json": "907c23ba5c9a5b74e52c6f838345d34473da10e4445af126992fcf21d9c630e4",
+        "work/structure/afdb/AF-P02235-F1.meta.json": "430684c6db2673a97ff21b41e62ffad9ef198d8a63c8d95577be41b3e41e33f9",
+        "work/structure/afdb/AF-P02236-F1.meta.json": "e5e9ef9f47bc9a1f2ecab057707e2b50b38a78605b4eb468045050e0a4b4bf8b",
+        "work/structure/afdb/AF-P02237-F1.meta.json": "3329d89909f29177ca997f8f8566b1fd6bf46ccb6f398888c4cfa0028f9b02c0",
+        "work/structure/afdb/AF-P02238-F1.meta.json": "6f86d0d1f39ea5b8f8187f20e8bd9c7b197b29fbc3503ed594061dfc905fa74b",
+        "work/structure/afdb/AF-Q42785-F1.meta.json": "845deb2198a75598582142f52e0b3a7bfc09dece6f649a1e126755ab54e35cbe"
+      },
+      "outputs_sha256": {
+        "results/structure_module/structures.csv": "ad33cb5306639cdea6842a02441277aa9f67bfb0c7c72b63e32700aff48b72bc"
+      },
+      "params": {
+        "max_len_delta": 20,
+        "min_identity": 99.0
+      },
+      "python": "3.11.16",
+      "step": "structures",
+      "tools": {}
+    },
+    "tree": {
+      "best_model": "Q.PLANT+I",
+      "config_digest": "eaa6afbc423e",
+      "config_source": "config/config.yaml",
+      "feeds_score": false,
+      "generated_utc": "2026-09-22T19:02:03Z",
+      "inputs_sha256": {
+        "work/phylo/globins.aln.faa": "894668d41dbf9e7af733311a6713de72cf6305355027a14eec53f78abd0e4dab"
+      },
+      "outputs_sha256": {
+        "results/sequence_module/globins.iqtree": "dbe08b9a3ecbfe7e6c8fe1ccd258ea0da6d64b80a0f63adec928960ee4aeec42",
+        "results/sequence_module/globins.treefile": "e512d393dd6d7bdd6fab07d9e051d1acad427d0ff75fcc7607b4cbb6d3c6d46e"
+      },
+      "params": {
+        "alrt": 1000,
+        "best_model_expected": "Q.PLANT+I",
+        "cfg_section": "d06fa2988568",
+        "feeds_score": false,
+        "model": "MFP",
+        "program": "iqtree",
+        "seed": 20240601,
+        "ufboot": 1000
+      },
+      "python": "3.11.16",
+      "step": "tree",
+      "tools": {
+        "iqtree": "IQ-TREE version 3.1.3 for MacOS Intel 64-bit built Jul 26 2026"
+      }
+    },
+    "uniprot_map": {
+      "accessions": {
+        "Glyma.10G198800": "P02237",
+        "Glyma.10G198900": "A0A0R0HW51",
+        "Glyma.10G199000": "P02235",
+        "Glyma.10G199100": "P02238",
+        "Glyma.11G121700": "I1LJI1",
+        "Glyma.11G121800": "Q42785",
+        "Glyma.20G191200": "P02236"
+      },
+      "config_digest": "eaa6afbc423e",
+      "config_source": "config/config.yaml",
+      "generated_utc": "2026-09-22T19:16:46Z",
+      "inputs_sha256": {
+        "results/sequence_module/globin_family_members.csv": "5c14b993da3a74d443faa4affc967e6f6cdb6de9892c2429cbefece9663c1419"
+      },
+      "outputs_sha256": {
+        "results/structure_module/uniprot_accessions.csv": "c9a77a1e72a45da0ac20e1ee7ea220b1385c54e1d63174d66a70b165f39bb6f6"
+      },
+      "params": {
+        "pinned": false,
+        "taxon": 3847
+      },
+      "python": "3.11.16",
+      "step": "uniprot_map",
+      "tools": {},
+      "uniprot_release": "2026_03"
+    }
+  }
+}

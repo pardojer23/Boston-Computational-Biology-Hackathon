@@ -1,0 +1,28 @@
+{
+  "accessions": {
+    "Glyma.10G198800": "P02237",
+    "Glyma.10G198900": "A0A0R0HW51",
+    "Glyma.10G199000": "P02235",
+    "Glyma.10G199100": "P02238",
+    "Glyma.11G121700": "I1LJI1",
+    "Glyma.11G121800": "Q42785",
+    "Glyma.20G191200": "P02236"
+  },
+  "config_digest": "eaa6afbc423e",
+  "config_source": "config/config.yaml",
+  "generated_utc": "2026-09-22T19:16:46Z",
+  "inputs_sha256": {
+    "results/sequence_module/globin_family_members.csv": "5c14b993da3a74d443faa4affc967e6f6cdb6de9892c2429cbefece9663c1419"
+  },
+  "outputs_sha256": {
+    "results/structure_module/uniprot_accessions.csv": "c9a77a1e72a45da0ac20e1ee7ea220b1385c54e1d63174d66a70b165f39bb6f6"
+  },
+  "params": {
+    "pinned": false,
+    "taxon": 3847
+  },
+  "python": "3.11.16",
+  "step": "uniprot_map",
+  "tools": {},
+  "uniprot_release": "2026_03"
+}

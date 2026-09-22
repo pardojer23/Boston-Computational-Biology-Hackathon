@@ -1,0 +1,482 @@
+# Soybean globin-family functional-redundancy pipeline.
+#
+#   snakemake -s workflow/Snakefile --cores 8 --use-conda
+#   snakemake -s workflow/Snakefile --cores 1 -n        # what is stale, and why
+#   snakemake -s workflow/Snakefile --dag | dot -Tpng > docs/pipeline_dag.png
+#
+# This file is the pipeline's order. It used to be README section 7 — four
+# runner scripts invoked by hand, with nothing able to tell that
+# redundancy_scores.csv was older than the paralog_pairs.csv behind it
+# (docs/PIPELINE_AUDIT.md finding 1). Every step is a rule with declared
+# inputs, outputs, params and conda environment; the order is a consequence of
+# the file dependencies rather than a thing to remember.
+#
+# Conventions
+# -----------
+# * `results/` holds deliverables. `work/` holds intermediates and caches.
+#   These were mixed — `results/structure_module/pdb/` was both the AFDB
+#   download cache and an output, so clearing results cleared the cache
+#   (audit finding 4). Caches now live under `work/` and are copied into
+#   results.
+# * Every rule's `params` carries the digest of the config section it depends
+#   on, so editing `score:` re-runs scoring and not hmmsearch.
+# * Two conda environments. The ESM2 embedding needs torch; nothing else does,
+#   and mixing them constrains the bioconda solve for no reason. Under
+#   `--use-conda` this is automatic — it is what the old runner's
+#   --skip-esm2 / --reuse-esm2 flag pair was working around.
+
+import json
+import sys
+from pathlib import Path
+
+configfile: "config/config.yaml"
+
+REPO = Path(workflow.basedir).parent
+sys.path.insert(0, str(REPO / "pipeline"))
+import config as cfgmod
+
+CFG = cfgmod.load(REPO / "config" / "config.yaml")
+
+# Paths from the config, so nothing here hardcodes a layout.
+DATA = config["paths"]["data"]
+WORK = config["paths"]["work"]
+RES = config["paths"]["results"]
+SEQ = config["paths"]["sequence_out"]
+STR = config["paths"]["structure_out"]
+EXP = config["paths"]["expression_out"]
+INT = config["paths"]["integration_out"]
+PROV = f"{RES}/.prov"
+
+STEPS = "pipeline/steps.py"
+CONF = "config/config.yaml"
+ENV_MAIN = "envs/soyglobin.yaml"
+ENV_ESM2 = "envs/esm2.yaml"
+
+GSMS = CFG.library_ids
+LIB_BY_GSM = {l["gsm"]: l for l in CFG.libraries}
+PARTS = list(config["expression"]["series"]["parts"])
+
+ACC = config["sequence"]["hmm"]["accession"]
+POCKET = config["structure"]["pocket"]
+POCKET_TAG = f"{POCKET['template_pdb']}_{POCKET['ligand']}_{POCKET['cutoff_a']}"
+
+
+def sh(cmd):
+    """Run one step of the CLI. Every rule's shell body is one of these."""
+    return f"python {STEPS} {cmd} --config {CONF} --prov {PROV}"
+
+
+# --------------------------------------------------------------------------- #
+# Targets
+# --------------------------------------------------------------------------- #
+
+rule all:
+    input:
+        f"{INT}/redundancy_scores.csv",
+        f"{INT}/weight_sensitivity.csv",
+        f"{INT}/redundancy_summary.png",
+        f"{SEQ}/globins.annotated.nwk",
+        f"{SEQ}/cutoff_check.json",
+        f"{STR}/pocket_residues.csv",
+        f"{EXP}/marker_profiles.csv",
+        f"{RES}/run_manifest.json",
+
+
+rule sequence:
+    input:
+        f"{SEQ}/paralog_pairs.csv",
+        f"{SEQ}/globins.annotated.nwk",
+        f"{SEQ}/cutoff_check.json",
+
+
+rule structure:
+    input: f"{STR}/structure_pairs.csv", f"{STR}/pocket_residues.csv"
+
+
+rule expression:
+    input: f"{EXP}/expression_pairs.csv", f"{EXP}/marker_profiles.csv"
+
+
+# --------------------------------------------------------------------------- #
+# Stage 0 — reference data
+#
+# One rule per file, each verified against the sha256 pinned in the config.
+# The previous helper fetched all three at once and cached on file *presence*,
+# so a truncated download or an upstream re-release under the same URL was
+# invisible until a parser failed much later (audit 1.1).
+# --------------------------------------------------------------------------- #
+
+rule fetch_proteome:
+    output: protected(config["reference"]["files"]["proteome"]["local"])
+    params: cfg=CFG.section_digest("reference.files.proteome")
+    conda: ENV_MAIN
+    shell: sh("fetch-reference --which proteome --out {output}")
+
+
+rule fetch_gff3:
+    output: protected(config["reference"]["files"]["gff3"]["local"])
+    params: cfg=CFG.section_digest("reference.files.gff3")
+    conda: ENV_MAIN
+    shell: sh("fetch-reference --which gff3 --out {output}")
+
+
+rule fetch_hmm:
+    output: protected(config["sequence"]["hmm"]["local"])
+    params: cfg=CFG.section_digest("sequence.hmm")
+    conda: ENV_MAIN
+    shell: sh("fetch-reference --which hmm --out {output}")
+
+
+# --------------------------------------------------------------------------- #
+# Stage 1 — sequence
+# --------------------------------------------------------------------------- #
+
+rule select_family:
+    input:
+        proteome=rules.fetch_proteome.output,
+        hmm=rules.fetch_hmm.output,
+    output:
+        faa=f"{SEQ}/globins.faa",
+        members=f"{SEQ}/globin_family_members.csv",
+        tblout=f"{WORK}/hmmer/{ACC}.tblout",
+    params:
+        workdir=f"{WORK}/hmmer",
+        cfg=CFG.section_digest("sequence.select", "sequence.hmm",
+                               "family.focal_genes"),
+    threads: config["resources"]["hmmsearch_threads"]
+    conda: ENV_MAIN
+    shell:
+        sh("select-family --proteome {input.proteome} --hmm {input.hmm} "
+           "--workdir {params.workdir} --out-faa {output.faa} "
+           "--out-members {output.members} --threads {threads}")
+
+
+rule cutoff_check:
+    # The relaxed search that establishes the gathering threshold is not
+    # truncating the family. Was run by hand and written into README §1.2; it
+    # is the evidence the family is complete, so it is a rule.
+    input:
+        proteome=rules.fetch_proteome.output,
+        hmm=rules.fetch_hmm.output,
+        members=rules.select_family.output.members,
+    output: f"{SEQ}/cutoff_check.json"
+    params:
+        workdir=f"{WORK}/hmmer",
+        cfg=CFG.section_digest("sequence.cutoff_check"),
+    threads: config["resources"]["hmmsearch_threads"]
+    conda: ENV_MAIN
+    shell:
+        sh("cutoff-check --hmm {input.hmm} --proteome {input.proteome} "
+           "--members {input.members} --workdir {params.workdir} "
+           "--out {output} --threads {threads}")
+
+
+rule align:
+    # Highest fan-out artefact in the pipeline: the coordinate system for
+    # pairwise identity, the pocket transfer, and pocket identity for every
+    # structural pair.
+    input: rules.select_family.output.faa
+    output: f"{WORK}/phylo/globins.aln.faa"
+    params: cfg=CFG.section_digest("sequence.alignment")
+    threads: config["resources"]["mafft_threads"]
+    conda: ENV_MAIN
+    shell: sh("align --faa {input} --out {output} --threads {threads}")
+
+
+rule tree:
+    # Terminal branch: no scoring step reads the tree
+    # (sequence.phylogeny.feeds_score is false). Kept because the topology is
+    # a reported result, not because the score depends on it.
+    input: rules.align.output
+    output:
+        treefile=f"{SEQ}/globins.treefile",
+        iqtree_report=f"{SEQ}/globins.iqtree",
+    params:
+        prefix=f"{WORK}/phylo/globins",
+        cfg=CFG.section_digest("sequence.phylogeny"),
+    threads: config["resources"]["iqtree_threads"]
+    conda: ENV_MAIN
+    shell:
+        sh("tree --aln {input} --prefix {params.prefix} "
+           "--out-treefile {output.treefile} --out-report {output.iqtree_report} "
+           "--threads {threads}")
+
+
+rule identity:
+    input: rules.align.output
+    output:
+        matrix=f"{SEQ}/pairwise_identity_matrix.csv",
+        pairs=f"{SEQ}/pairwise_identity_pairs.csv",
+    conda: ENV_MAIN
+    shell:
+        sh("identity --aln {input} --out-matrix {output.matrix} "
+           "--out-pairs {output.pairs}")
+
+
+rule embed:
+    # The one genuine environment seam: torch + transformers, not the bioconda
+    # stack. Weights come from the HF CDN, not huggingface.co itself — see the
+    # note in workflow/envs/esm2.yaml if this fails behind an egress allowlist.
+    input: rules.select_family.output.faa
+    output:
+        matrix=f"{SEQ}/esm2_cosine_distance_matrix.csv",
+        npz=f"{SEQ}/esm2_embeddings.npz",
+    params: cfg=CFG.section_digest("sequence.embedding")
+    conda: ENV_ESM2
+    shell:
+        sh("embed --faa {input} --out-matrix {output.matrix} "
+           "--out-npz {output.npz}")
+
+
+rule classify_pairs:
+    # Emits the sequence module's contract with module 4. The ESM2 matrix is a
+    # declared input, not an optional one: the old runner could skip it and
+    # propagate NaN into the score four steps later (audit 1.6).
+    input:
+        members=rules.select_family.output.members,
+        gff3=rules.fetch_gff3.output,
+        identity=rules.identity.output.pairs,
+        cosine=rules.embed.output.matrix,
+    output:
+        pairs=f"{SEQ}/paralog_pairs.csv",
+        context=f"{SEQ}/gene_context.csv",
+    params: cfg=CFG.section_digest("sequence.duplication")
+    conda: ENV_MAIN
+    shell:
+        sh("classify-pairs --members {input.members} --gff3 {input.gff3} "
+           "--identity-pairs {input.identity} --cosine {input.cosine} "
+           "--out-pairs {output.pairs} --out-context {output.context}")
+
+
+rule annotate_tree:
+    input:
+        treefile=rules.tree.output.treefile,
+        context=rules.classify_pairs.output.context,
+    output: f"{SEQ}/globins.annotated.nwk"
+    conda: ENV_MAIN
+    shell:
+        sh("annotate-tree --treefile {input.treefile} "
+           "--context {input.context} --out {output}")
+
+
+rule copy_alignment:
+    # The alignment is a deliverable as well as an intermediate: module 2 reads
+    # it and it is cited in the README.
+    input: rules.align.output
+    output: f"{SEQ}/globins.aln.faa"
+    shell: "cp {input} {output}"
+
+
+# --------------------------------------------------------------------------- #
+# Stage 2 — structure
+# --------------------------------------------------------------------------- #
+
+checkpoint uniprot_map:
+    # A checkpoint because the AFDB accessions are not known until this runs:
+    # the accession list is data, not configuration (unless pinned). This also
+    # persists the mapping, which used to be a live query on every run with
+    # nothing recorded — the least stable input in the pipeline was also the
+    # only unrecorded one (audit 2.1).
+    input: members=rules.select_family.output.members
+    output: f"{STR}/uniprot_accessions.csv"
+    params: cfg=CFG.section_digest("structure.uniprot", "family.species")
+    conda: ENV_MAIN
+    shell: sh("uniprot-map --members {input.members} --out {output}")
+
+
+def afdb_accessions(wildcards):
+    """Accessions read from the uniprot_map checkpoint output."""
+    import csv
+    path = checkpoints.uniprot_map.get(**wildcards).output[0]
+    with open(path) as fh:
+        return sorted({r["uniprot"] for r in csv.DictReader(fh) if r["uniprot"]})
+
+
+rule fetch_afdb:
+    # Into work/, not results/. The model cache and the deliverable directory
+    # were the same place, so a clean re-run deleted the cache (audit 2.2).
+    output:
+        pdb=f"{WORK}/structure/afdb/AF-{{acc}}-F1.pdb",
+        meta=f"{WORK}/structure/afdb/AF-{{acc}}-F1.meta.json",
+    params: cfg=CFG.section_digest("structure.afdb")
+    conda: ENV_MAIN
+    shell:
+        sh("fetch-afdb --acc {wildcards.acc} --out {output.pdb} "
+           "--out-meta {output.meta}")
+
+
+rule pocket_template:
+    # A DAG root: depends on (template, ligand, cutoff) and nothing upstream.
+    # Cached on those three values, so a cutoff sweep does not re-download.
+    output: f"{WORK}/structure/templates/pocket_{POCKET_TAG}.json"
+    params: cfg=CFG.section_digest("structure.pocket")
+    conda: ENV_MAIN
+    shell: sh("pocket-template --out {output}")
+
+
+def afdb_meta_files(wildcards):
+    return expand(f"{WORK}/structure/afdb/AF-{{acc}}-F1.meta.json",
+                  acc=afdb_accessions(wildcards))
+
+
+def afdb_pdb_files(wildcards):
+    return expand(f"{WORK}/structure/afdb/AF-{{acc}}-F1.pdb",
+                  acc=afdb_accessions(wildcards))
+
+
+rule structures:
+    input:
+        uniprot=f"{STR}/uniprot_accessions.csv",
+        faa=rules.select_family.output.faa,
+        meta=afdb_meta_files,
+        pdb=afdb_pdb_files,
+    output:
+        table=f"{STR}/structures.csv",
+        pdb_dir=directory(f"{STR}/pdb"),
+    params: cfg=CFG.section_digest("structure.model_vs_reference")
+    conda: ENV_MAIN
+    shell:
+        sh("structures --uniprot {input.uniprot} --faa {input.faa} "
+           "--afdb-meta {input.meta} --out-pdb-dir {output.pdb_dir} "
+           "--out {output.table}")
+
+
+rule pocket_residues:
+    input:
+        pocket=rules.pocket_template.output,
+        aln=rules.copy_alignment.output,
+        faa=rules.select_family.output.faa,
+        uniprot=f"{STR}/uniprot_accessions.csv",
+    output:
+        table=f"{STR}/pocket_residues.csv",
+        cols=f"{WORK}/structure/pocket_columns.json",
+    params:
+        cfg=CFG.section_digest("structure.pocket", "structure.pocket_crosscheck"),
+    conda: ENV_MAIN
+    shell:
+        sh("pocket-residues --pocket {input.pocket} --aln {input.aln} "
+           "--faa {input.faa} --uniprot {input.uniprot} "
+           "--out {output.table} --out-cols {output.cols}")
+
+
+rule structure_pairs:
+    input:
+        aln=rules.copy_alignment.output,
+        cols=rules.pocket_residues.output.cols,
+        structures=rules.structures.output.table,
+        pdb_dir=rules.structures.output.pdb_dir,
+    output: f"{STR}/structure_pairs.csv"
+    params: cfg=CFG.section_digest("structure.superposition")
+    conda: ENV_MAIN
+    shell:
+        sh("structure-pairs --aln {input.aln} --pocket-cols {input.cols} "
+           "--structures {input.structures} --pdb-dir {input.pdb_dir} "
+           "--out {output}")
+
+
+# --------------------------------------------------------------------------- #
+# Stage 3 — expression
+# --------------------------------------------------------------------------- #
+
+rule fetch_expression:
+    # One library per rule (~250 MB each), so a re-run fetches only what is
+    # missing rather than re-walking all ~1.2 GB.
+    output:
+        expand(f"{DATA}/expression/{{{{gsm}}}}_{{{{stem}}}}_{{part}}", part=PARTS)
+    params: cfg=CFG.section_digest("expression.series", "expression.libraries")
+    conda: ENV_MAIN
+    shell:
+        sh("fetch-expression --gsm {wildcards.gsm} "
+           f"--datadir {DATA}/expression")
+
+
+def expression_inputs(wildcards=None):
+    return [f"{DATA}/expression/{g}_{LIB_BY_GSM[g]['stem']}_{p}"
+            for g in GSMS for p in PARTS]
+
+
+rule pseudobulk:
+    # Cached on the sha256 of every matrix and feature file it reads. The cache
+    # used to be keyed on the library *list*, so replacing a matrix on disk
+    # reused a stale summed table silently (audit 3.2).
+    input: expression_inputs
+    output: config["expression"]["pseudobulk"]["cache"]
+    params:
+        datadir=f"{DATA}/expression",
+        cfg=CFG.section_digest("expression.libraries", "expression.pseudobulk"),
+    conda: ENV_MAIN
+    shell: sh("pseudobulk --datadir {params.datadir} --out {output}")
+
+
+rule expression_tables:
+    # `members` is a declared input. It was reached through a
+    # Path(__file__)-relative module constant, which made the dependency real
+    # but invisible to any orchestrator (audit finding 3).
+    input:
+        members=rules.select_family.output.members,
+        counts=rules.pseudobulk.output,
+        libs=expression_inputs,
+    output:
+        profiles=f"{EXP}/gene_pseudobulk_profiles.csv",
+        pairs=f"{EXP}/expression_pairs.csv",
+        markers=f"{EXP}/marker_profiles.csv",
+        manifest=f"{EXP}/manifest.json",
+    params:
+        datadir=f"{DATA}/expression",
+        outdir=EXP,
+        cfg=CFG.section_digest("expression"),
+    conda: ENV_MAIN
+    shell:
+        sh("expression --datadir {params.datadir} --outdir {params.outdir} "
+           "--members {input.members} --counts-cache {input.counts}")
+
+
+# --------------------------------------------------------------------------- #
+# Stage 4 — integration
+# --------------------------------------------------------------------------- #
+
+rule integration:
+    input:
+        seq=rules.classify_pairs.output.pairs,
+        struc=rules.structure_pairs.output,
+        expr=rules.expression_tables.output.pairs,
+        profiles=rules.expression_tables.output.profiles,
+    output:
+        scores=f"{INT}/redundancy_scores.csv",
+        sweep=f"{INT}/weight_sensitivity.csv",
+        manifest=f"{INT}/manifest.json",
+    params:
+        results_dir=RES,
+        outdir=INT,
+        cfg=CFG.section_digest("score", "checks"),
+    conda: ENV_MAIN
+    shell:
+        sh("integration --results-dir {params.results_dir} "
+           "--outdir {params.outdir}")
+
+
+rule plot_integration:
+    input:
+        scores=rules.integration.output.scores,
+        sweep=rules.integration.output.sweep,
+    output: f"{INT}/redundancy_summary.png"
+    conda: ENV_MAIN
+    shell:
+        f"python pipeline/plot_integration.py --config {CONF} "
+        "--scores {input.scores} --sweep {input.sweep} --out {output}"
+
+
+rule run_manifest:
+    # Collects every step's provenance sidecar and cross-checks each recorded
+    # input digest against the file as it is now. There were four independent
+    # module manifests, none recording the identity of the upstream outputs it
+    # consumed, and no run id (audit finding 2).
+    input:
+        f"{INT}/redundancy_scores.csv",
+        f"{SEQ}/cutoff_check.json",
+        f"{STR}/pocket_residues.csv",
+        f"{EXP}/marker_profiles.csv",
+        f"{SEQ}/globins.annotated.nwk",
+    output: f"{RES}/run_manifest.json"
+    conda: ENV_MAIN
+    shell: sh("run-manifest --out {output}")

@@ -44,38 +44,53 @@ from scipy.io import mmread
 from scipy.stats import spearmanr
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import config
+import contracts
 import soy_globin_core as core  # noqa: E402
 
 # --------------------------------------------------------------------------- #
 # Configuration
 # --------------------------------------------------------------------------- #
 
-#: GSE226149 libraries: accession -> (file stem, tissue)
-SAMPLES = {
-    "GSM7065810": ("Nodule_sample1", "nodule"),
-    "GSM7065811": ("Nodule_sample2", "nodule"),
-    "GSM7065807": ("Root_sample1", "root"),
-    "GSM7065808": ("Root_sample2", "root"),
-    "GSM7065809": ("Root_sample3", "root"),
-}
-
-#: The family is *discovered* by hmmsearch in module 1, not declared, so this
-#: module reads it from module 1's output rather than keeping its own copy. It
-#: used to keep a copy, and the copy disagreed with ``core.GENE_SYMBOLS`` about
-#: whether ``Glyma.10G198900`` carries a symbol — which silently cost 6 of 21
-#: rows on any join between this module's pair table and the sequence module's.
-SEQ_MEMBERS = (
-    Path(__file__).resolve().parent.parent
-    / "results" / "sequence_module" / "globin_family_members.csv"
-)
+# The library table, the marker panel, the pseudocount and the tissue names
+# all used to be module constants here. They are now in
+# `config/config.yaml` under `expression:`, and every function below takes the
+# `cfg` it needs. The tissue names in particular were baked into column names
+# and into derived constants (NODULE_LIBS / ROOT_LIBS), which is what made this
+# module unable to describe any organ pair but nodule-vs-root.
 
 
-def load_family(members_csv: str | Path = SEQ_MEMBERS) -> dict[str, str | None]:
-    """Family gene IDs -> symbol, read from the sequence module's member table."""
+def libraries(cfg) -> list[dict]:
+    """``[{gsm, stem, tissue, ...}, ...]`` in config order."""
+    return cfg.libraries
+
+
+def library_ids(cfg) -> list[str]:
+    return cfg.library_ids
+
+
+def libs_for_tissue(cfg, tissue: str) -> list[str]:
+    """Replaces the NODULE_LIBS / ROOT_LIBS module constants."""
+    return cfg.libraries_for_tissue(tissue)
+
+def load_family(members_csv: str | Path) -> dict[str, str | None]:
+    """Family gene IDs -> symbol, read from the sequence module's member table.
+
+    The family is *discovered* by the HMM search in module 1, not declared, so
+    this module reads it rather than keeping a copy. It used to keep one, and
+    the copy disagreed with the shared symbol map about whether
+    ``Glyma.10G198900`` carries a symbol — which silently cost 6 of 21 rows on
+    any join between this module's pair table and the sequence module's.
+
+    ``members_csv`` is now a required argument. It was a module-level constant
+    built from ``Path(__file__).parent.parent``, which meant the dependency was
+    real but undeclared: it could not be redirected, overridden in a test, or
+    checked for staleness (docs/PIPELINE_AUDIT.md finding 3).
+    """
     members_csv = Path(members_csv)
     if not members_csv.exists():
         raise FileNotFoundError(
-            f"{members_csv} not found — run pipeline/run_local.py first; this "
+            f"{members_csv} not found — the sequence stage has not run. This "
             f"module takes its family definition from module 1's output."
         )
     m = pd.read_csv(members_csv)
@@ -84,62 +99,111 @@ def load_family(members_csv: str | Path = SEQ_MEMBERS) -> dict[str, str | None]:
         for r in m.itertuples()
     }
 
-#: Independent nodule cell-type markers, resolved UniProt -> Wm82.a4 by phmmer
-#: against the primary proteome. Leghemoglobin is deliberately excluded: using
-#: Lb to mark the infected-cell compartment would be circular in a study of Lb.
-#: Reported as context for the pseudobulk profiles, not used to define them.
-MARKERS = {
-    "Glyma.08G120100": "NOD26 (symbiosome membrane, infected cells; P08995)",
-    "Glyma.10G121524": "Uricase-2 / nodulin-35 (uninfected interstitial cells; P04670)",
-    "Glyma.20G072400": "Uricase-2 isozyme 2 (P04104)",
-    "Glyma.13G114000": "Sucrose synthase / nodulin-100 (P13708)",
-}
 
-#: GEO supplementary-file base for a GSM accession.
-GEO_SAMPLE_BASE = "https://ftp.ncbi.nlm.nih.gov/geo/samples/{dir}/{gsm}/suppl"
+def markers(cfg) -> dict[str, str]:
+    """Gene ID -> role string for the configured marker panel.
 
-#: The three CellRanger parts each library ships.
-PARTS = ("matrix.mtx.gz", "features.tsv.gz", "barcodes.tsv.gz")
+    Independent cell-type markers, reported as context for the pseudobulk
+    profiles and deliberately not used to define them: using leghemoglobin to
+    mark the infected-cell compartment would be circular in a study of
+    leghemoglobin.
+    """
+    out = {}
+    for gene, spec in (cfg.get("expression.markers") or {}).items():
+        role = spec.get("role", "") if isinstance(spec, dict) else str(spec)
+        up = spec.get("uniprot") if isinstance(spec, dict) else None
+        out[gene] = f"{role} ({up})" if up else role
+    return out
 
 
-def fetch_inputs(datadir: str | Path, force: bool = False) -> dict[str, str]:
-    """Download the GSE226149 libraries into ``datadir`` under canonical names.
+def part_names(cfg) -> tuple[str, ...]:
+    """The CellRanger parts each library ships."""
+    return tuple(cfg["expression.series.parts"])
 
-    The filenames this module reads are exactly GEO's own
-    ``{GSM}_{stem}_{part}`` — no local renaming step. Existing files are kept
-    unless ``force``, so a rerun is cheap (~1.2 GB total).
+
+def expected_files(cfg) -> list[str]:
+    """Canonical filenames for every library part, in config order.
+
+    The filenames are exactly GEO's own ``{GSM}_{stem}_{part}`` — there is no
+    local renaming step, so a workflow rule can name these as outputs directly.
+    """
+    return [f"{lib['gsm']}_{lib['stem']}_{part}"
+            for lib in libraries(cfg) for part in part_names(cfg)]
+
+
+def fetch_library(cfg, datadir: str | Path, gsm: str, force: bool = False) -> dict:
+    """Download the three parts of one library. Returns a provenance record.
+
+    One library per call, so each is its own workflow rule: a re-run fetches
+    only what is missing rather than re-walking all ~1.2 GB.
     """
     import urllib.request
 
+    lib = next((l for l in libraries(cfg) if l["gsm"] == gsm), None)
+    if lib is None:
+        raise KeyError(f"{gsm} is not in expression.libraries")
     datadir = Path(datadir)
     datadir.mkdir(parents=True, exist_ok=True)
+    base = cfg["expression.series.ftp_base"].format(dir=f"{gsm[:-3]}nnn", gsm=gsm)
     got = {}
-    for gsm, (stem, _) in SAMPLES.items():
-        base = GEO_SAMPLE_BASE.format(dir=f"{gsm[:-3]}nnn", gsm=gsm)
-        for part in PARTS:
-            name = f"{gsm}_{stem}_{part}"
-            dest = datadir / name
-            if force or not dest.exists():
-                urllib.request.urlretrieve(f"{base}/{name}", dest)
-            got[name] = str(dest)
-    return got
+    for part in part_names(cfg):
+        name = f"{gsm}_{lib['stem']}_{part}"
+        dest = datadir / name
+        if force or not dest.exists() or dest.stat().st_size == 0:
+            print(f"[fetch] {base}/{name}", flush=True)
+            urllib.request.urlretrieve(f"{base}/{name}", dest)
+        got[part] = {"path": str(dest), "bytes": dest.stat().st_size,
+                     "sha256": core.sha256(dest)}
+    return {"gsm": gsm, "stem": lib["stem"], "tissue": lib["tissue"], "parts": got}
 
 
-def check_inputs(datadir: str | Path) -> list[str]:
+def fetch_inputs(cfg, datadir: str | Path, force: bool = False) -> dict[str, dict]:
+    """Download every configured library."""
+    return {lib["gsm"]: fetch_library(cfg, datadir, lib["gsm"], force=force)
+            for lib in libraries(cfg)}
+
+
+def check_inputs(cfg, datadir: str | Path) -> list[str]:
     """Return the canonical filenames that are missing from ``datadir``."""
     datadir = Path(datadir)
-    return [f"{gsm}_{stem}_{part}"
-            for gsm, (stem, _) in SAMPLES.items() for part in PARTS
-            if not (datadir / f"{gsm}_{stem}_{part}").exists()]
+    return [n for n in expected_files(cfg) if not (datadir / n).exists()]
+
+
+def input_checksums(cfg, datadir: str | Path) -> dict[str, str]:
+    """sha256 of every matrix and feature file the pseudobulk sum reads.
+
+    This is the pseudobulk cache key. The cache used to be validated against
+    the *library list* only, so replacing a matrix file on disk left a stale
+    summed table in place and silently reused it (audit 3.2). Barcodes are
+    excluded: they are downloaded for completeness but the sum does not read
+    them, so their digest would invalidate the cache without affecting it.
+    """
+    datadir = Path(datadir)
+    keep = [p for p in part_names(cfg) if "barcodes" not in p]
+    return {n: core.sha256(datadir / n)
+            for n in expected_files(cfg)
+            if any(n.endswith(p) for p in keep)}
 
 
 #: GSE226149 features.tsv uses GLYMA_10G199100; everything else uses Glyma.10G199100.
-def to_geo_id(gene_id: str) -> str:
-    return gene_id.replace(".", "_").upper()
+#: Gene-ID transforms for matching the family against a series feature list.
+#: GSE226149's ``features.tsv.gz`` writes ``GLYMA_10G199100``, not
+#: ``Glyma.10G199100``; any lookup that skips this silently matches nothing
+#: (README §9.16). Named in config as ``family.identifiers.geo_id_transform``
+#: so a series with a different convention is a config change.
+ID_TRANSFORMS = {
+    "upper_underscore": lambda g: g.replace(".", "_").upper(),
+    "identity": lambda g: g,
+}
 
 
-#: Labels come from core so this module cannot disagree with the others.
-label_of = core.label_of
+def to_geo_id(gene_id: str, transform: str = "upper_underscore") -> str:
+    try:
+        return ID_TRANSFORMS[transform](gene_id)
+    except KeyError:
+        raise ValueError(
+            f"unknown geo_id_transform {transform!r}; known: {sorted(ID_TRANSFORMS)}"
+        ) from None
 
 
 # --------------------------------------------------------------------------- #
@@ -164,41 +228,64 @@ def pseudobulk_library(datadir: Path, gsm: str, stem: str) -> pd.Series:
     return pd.Series(np.asarray(mat.sum(axis=1)).ravel(), index=feats, name=gsm)
 
 
-#: Summed per-library counts are cached here. Reading the five matrices costs a
-#: full pass over ~1.2 GB and holds the largest one in memory; the summed table
-#: is ~57k x 5 integers. Anything downstream that only needs expression values
-#: (the pair statistics, the integration module) can work from the cache, so the
-#: matrices are read once per dataset rather than once per question.
-COUNTS_CACHE = (
-    Path(__file__).resolve().parent.parent / "work" / "expression" / "pseudobulk_counts.csv.gz"
-)
-
-
 def build_pseudobulk(
+    cfg,
     datadir: str | Path,
-    cache: str | Path | None = COUNTS_CACHE,
+    cache: str | Path | None = None,
     force: bool = False,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Return (raw counts, CPM) as genes x libraries, via the summed-count cache."""
+    """Return (raw counts, CPM) as genes x libraries, via the summed-count cache.
+
+    Reading the matrices costs a full pass over ~1.2 GB and holds the largest
+    one in memory; the summed table is ~57k x 5 integers. Everything downstream
+    needs only the sums, so the matrices are read once per dataset rather than
+    once per question. Peak memory is one matrix, not the whole atlas — which
+    is why this stage does not need remote dispatch.
+
+    **The cache is keyed on the sha256 of the input matrices**, recorded in a
+    sidecar ``.key.json``. Previously it was validated against the library
+    *list* only, so swapping a matrix file left the stale summed table in place
+    and reused it without a word (audit 3.2). A key mismatch rebuilds rather
+    than raising: the inputs are the authority, and a cache is only ever an
+    optimisation.
+    """
     datadir = Path(datadir)
-    cache = Path(cache) if cache is not None else None
+    cache = Path(cache) if cache is not None else Path(cfg["expression.pseudobulk.cache"])
+    keyfile = cache.with_suffix(".key.json") if cache.suffix != ".json" else None
+    want_key = {"libraries": library_ids(cfg),
+                "inputs": input_checksums(cfg, datadir)}
 
-    if cache is not None and cache.exists() and not force:
-        counts = pd.read_csv(cache, index_col=0)
-        if list(counts.columns) != list(SAMPLES):
-            raise ValueError(
-                f"{cache} holds libraries {list(counts.columns)}, expected "
-                f"{list(SAMPLES)}; delete it or pass force=True to rebuild."
-            )
-    else:
+    counts = None
+    if cache.exists() and not force:
+        have_key = None
+        if keyfile is not None and keyfile.exists():
+            try:
+                have_key = json.loads(keyfile.read_text())
+            except json.JSONDecodeError:
+                have_key = None
+        if have_key == want_key:
+            counts = pd.read_csv(cache, index_col=0)
+        else:
+            why = ("no cache key recorded (cache predates checksum keying)"
+                   if have_key is None else
+                   "input checksums or library list have changed")
+            print(f"[pseudobulk] rebuilding {cache.name}: {why}", flush=True)
+
+    if counts is None:
         counts = pd.DataFrame(
-            {gsm: pseudobulk_library(datadir, gsm, stem)
-             for gsm, (stem, _) in SAMPLES.items()}
+            {lib["gsm"]: pseudobulk_library(datadir, lib["gsm"], lib["stem"])
+             for lib in libraries(cfg)}
         )
-        if cache is not None:
-            cache.parent.mkdir(parents=True, exist_ok=True)
-            counts.to_csv(cache)
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        counts.to_csv(cache)
+        if keyfile is not None:
+            keyfile.write_text(json.dumps(want_key, indent=2, sort_keys=True))
 
+    if list(counts.columns) != library_ids(cfg):
+        raise ValueError(
+            f"{cache} holds libraries {list(counts.columns)}, config declares "
+            f"{library_ids(cfg)}"
+        )
     cpm = counts / counts.sum(axis=0) * 1e6
     return counts, cpm
 
@@ -220,40 +307,51 @@ def tau(profile: np.ndarray) -> float:
     return float((1.0 - x / x.max()).sum() / (x.size - 1))
 
 
-def gene_profiles(cpm: pd.DataFrame, genes: dict[str, str | None]) -> pd.DataFrame:
-    """Per-gene pseudobulk profile, tissue means, and tau over tissue means."""
-    tissues = sorted({t for _, t in SAMPLES.values()})
+def gene_profiles(cfg, cpm: pd.DataFrame, genes: dict[str, str | None]) -> pd.DataFrame:
+    """Per-gene pseudobulk profile, tissue means, and tau over tissue means.
+
+    Tissue order follows the config's library order rather than alphabetical
+    sort, so the columns read focal-tissue-first and match the manifest.
+
+    ``tau_over_tissue_means`` is named for what it is: with two tissues it
+    collapses to a focal-vs-contrast contrast and is not a tissue-specificity
+    index in the usual sense (README §9.9). ``detection_rate`` is NA with a
+    reason rather than replaced by a look-alike statistic — it is a per-cell
+    quantity and pseudobulk has no cells.
+    """
+    tissues = cfg.tissue_names
+    transform = cfg["family.identifiers.geo_id_transform"]
+    symbols = cfg.gene_symbols
+    notcomp = (cfg.get("expression.metrics.not_computable") or {}).get(
+        "detection_rate", "per-cell quantity; pseudobulk has no cells")
+    libs_by_tissue = {t: cfg.libraries_for_tissue(t) for t in tissues}
     rows = []
     for gene in genes:
-        gid = to_geo_id(gene)
+        gid = to_geo_id(gene, transform)
         if gid not in cpm.index:
-            rows.append({"gene_id": gene, "label": label_of(gene), "in_matrix": False})
+            rows.append({"gene_id": gene, "label": core.label_of(gene, symbols),
+                         "in_matrix": False})
             continue
         v = cpm.loc[gid]
-        tmeans = {t: float(v[[g for g, (_, tt) in SAMPLES.items() if tt == t]].mean())
-                  for t in tissues}
-        row = {
+        tmeans = {t: float(v[libs_by_tissue[t]].mean()) for t in tissues}
+        rows.append({
             "gene_id": gene,
-            "label": label_of(gene),
+            "label": core.label_of(gene, symbols),
             "symbol": genes[gene] or "",
             "in_matrix": True,
-            **{f"cpm_{g}": float(v[g]) for g in SAMPLES},
-            **{f"cpm_mean_{t}": tmeans[t] for t in tissues},
+            **{f"cpm_{g}": float(v[g]) for g in library_ids(cfg)},
+            **{cfg.tissue_mean_column(t): tmeans[t] for t in tissues},
             "tau_over_tissue_means": tau(np.array([tmeans[t] for t in tissues])),
             "n_tissues_for_tau": len(tissues),
-            # cell-level quantities, not defined on pseudobulk
             "detection_rate": np.nan,
-            "detection_rate_note": "not computable from pseudobulk (no cells)",
-        }
-        rows.append(row)
+            "detection_rate_note": notcomp,
+        })
     return pd.DataFrame(rows)
 
 
-#: Libraries grouped by tissue, derived from SAMPLES so the two stay in step.
-NODULE_LIBS = [g for g, (_, t) in SAMPLES.items() if t == "nodule"]
-ROOT_LIBS = [g for g, (_, t) in SAMPLES.items() if t == "root"]
-
-#: CPM added to both sides of every ratio before taking a log. Needed because
+#: CPM added to both sides of every ratio before taking a log. Configured as
+#: ``expression.metrics.log2fc_pseudocount_cpm``; the value and this reasoning
+#: travel together into the manifest. Needed because
 #: two of the three root libraries are at exactly 0 CPM for every leghemoglobin,
 #: so an unregularised fold change is 0/0 there.
 #:
@@ -267,13 +365,22 @@ ROOT_LIBS = [g for g, (_, t) in SAMPLES.items() if t == "root"]
 #: at 15-49 M counts per library, 1 CPM is already a fraction of one count, so
 #: the honest reading is that those genes are near the detection floor rather
 #: than that the pseudocount is distorting a real measurement.
-LOG2FC_PSEUDOCOUNT_CPM = 1.0
+PSEUDOCOUNT_REASON = (
+    "two of three contrast-tissue libraries are at exactly 0 CPM for every "
+    "family member, so an unregularised ratio is 0/0 there"
+)
+PSEUDOCOUNT_SCOPE_CAVEAT = (
+    "negligible for the high-expressed focal genes but not for members near "
+    "the detection floor: fold changes involving those are regularised, not "
+    "measured ratios"
+)
 
 
 def pair_metrics(
+    cfg,
     cpm: pd.DataFrame,
     genes: dict[str, str | None],
-    pseudocount: float = LOG2FC_PSEUDOCOUNT_CPM,
+    pseudocount: float | None = None,
 ) -> pd.DataFrame:
     """Pairwise expression statistics over the pseudobulk libraries.
 
@@ -310,12 +417,21 @@ def pair_metrics(
         NA. It is defined per cell (cells expressing both over cells expressing
         either) and pseudobulk has no cells; see the module docstring.
     """
-    present = [g for g in genes if to_geo_id(g) in cpm.index]
+    if pseudocount is None:
+        pseudocount = float(cfg["expression.metrics.log2fc_pseudocount_cpm"])
+    transform = cfg["family.identifiers.geo_id_transform"]
+    symbols = cfg.gene_symbols
+    focal_tissue = cfg.tissues["focal"]
+    focal_libs = cfg.libraries_for_tissue(focal_tissue)
+    notcomp = (cfg.get("expression.metrics.not_computable") or {}).get(
+        "coexpression_overlap", "per-cell quantity; pseudobulk has no cells")
+
+    present = [g for g in genes if to_geo_id(g, transform) in cpm.index]
     logcpm = np.log1p(cpm)
-    all_libs = list(SAMPLES)
+    all_libs = library_ids(cfg)
     rows = []
     for a, b in core.canonical_pair_order(present):
-        ga, gb = to_geo_id(a), to_geo_id(b)
+        ga, gb = to_geo_id(a, transform), to_geo_id(b, transform)
         va = logcpm.loc[ga, all_libs].to_numpy(dtype=float)
         vb = logcpm.loc[gb, all_libs].to_numpy(dtype=float)
         rho = (np.nan if np.ptp(va) == 0 or np.ptp(vb) == 0
@@ -326,14 +442,14 @@ def pair_metrics(
             xb = cpm.loc[gb, libs].to_numpy(dtype=float) + pseudocount
             return np.log2(xa / xb)
 
-        fc_all, fc_nod = l2fc(all_libs), l2fc(NODULE_LIBS)
-        na = float(cpm.loc[ga, NODULE_LIBS].mean())
-        nb = float(cpm.loc[gb, NODULE_LIBS].mean())
+        fc_all, fc_foc = l2fc(all_libs), l2fc(focal_libs)
+        na = float(cpm.loc[ga, focal_libs].mean())
+        nb = float(cpm.loc[gb, focal_libs].mean())
         hi = max(na, nb)
 
         rows.append({
-            "label_a": label_of(a),
-            "label_b": label_of(b),
+            "label_a": core.label_of(a, symbols),
+            "label_b": core.label_of(b, symbols),
             "gene_a": a,
             "gene_b": b,
             "spearman_profile": rho,
@@ -341,17 +457,18 @@ def pair_metrics(
             "log2fc_mean_all": float(fc_all.mean()),
             "log2fc_sd_all": float(fc_all.std(ddof=1)),
             "n_libraries_all": len(all_libs),
-            "log2fc_mean_nodule": float(fc_nod.mean()),
-            "log2fc_sd_nodule": float(fc_nod.std(ddof=1)) if len(fc_nod) > 1 else np.nan,
-            "n_libraries_nodule": len(NODULE_LIBS),
+            f"log2fc_mean_{focal_tissue}": float(fc_foc.mean()),
+            f"log2fc_sd_{focal_tissue}": (float(fc_foc.std(ddof=1))
+                                          if len(fc_foc) > 1 else np.nan),
+            f"n_libraries_{focal_tissue}": len(focal_libs),
             "log2fc_pseudocount_cpm": pseudocount,
-            "cpm_mean_nodule_a": na,
-            "cpm_mean_nodule_b": nb,
+            f"cpm_mean_{focal_tissue}_a": na,
+            f"cpm_mean_{focal_tissue}_b": nb,
             "dose_ratio": (min(na, nb) / hi) if hi > 0 else np.nan,
             "cover_a_by_b": (min(nb / na, 1.0) if na > 0 else np.nan),
             "cover_b_by_a": (min(na / nb, 1.0) if nb > 0 else np.nan),
             "coexpression_overlap": np.nan,
-            "coexpression_overlap_note": "not computable from pseudobulk (no cells)",
+            "coexpression_overlap_note": notcomp,
         })
     return pd.DataFrame(rows)
 
@@ -361,84 +478,94 @@ def pair_metrics(
 # --------------------------------------------------------------------------- #
 
 
-def run(datadir: str | Path, outdir: str | Path, fetch: bool = True) -> dict:
+def run(
+    cfg,
+    datadir: str | Path,
+    outdir: str | Path,
+    members_csv: str | Path,
+    fetch: bool = True,
+) -> dict:
+    """The whole expression stage. Every path is an argument."""
     outdir = Path(outdir)
     outdir.mkdir(parents=True, exist_ok=True)
 
-    missing = check_inputs(datadir)
+    missing = check_inputs(cfg, datadir)
     if missing:
         if not fetch:
             raise FileNotFoundError(
                 f"{len(missing)} input file(s) missing from {datadir}, "
-                f"first: {missing[0]}. Run with fetch=True (or drop --no-fetch)."
+                f"first: {missing[0]}. Run with fetch=True."
             )
-        fetch_inputs(datadir)
-        still = check_inputs(datadir)
+        fetch_inputs(cfg, datadir)
+        still = check_inputs(cfg, datadir)
         if still:
             raise FileNotFoundError(f"fetch did not produce: {still}")
 
-    family = load_family()
-    counts, cpm = build_pseudobulk(datadir)
-    prof = gene_profiles(cpm, family)
-    pairs = pair_metrics(cpm, family)
-    marks = gene_profiles(cpm, {g: None for g in MARKERS})
-    marks["marker_role"] = [MARKERS[g] for g in marks["gene_id"]]
+    family = load_family(members_csv)
+    counts, cpm = build_pseudobulk(cfg, datadir)
+    prof = gene_profiles(cfg, cpm, family)
+    pairs = pair_metrics(cfg, cpm, family)
 
-    prof.to_csv(outdir / "gene_pseudobulk_profiles.csv", index=False)
-    pairs.to_csv(outdir / "expression_pairs.csv", index=False)
-    marks.to_csv(outdir / "marker_profiles.csv", index=False)
+    mk = markers(cfg)
+    marks = gene_profiles(cfg, cpm, {g: None for g in mk})
+    marks["marker_role"] = [mk[g] for g in marks["gene_id"]]
+
+    n_members = len(family)
+    contracts.write_csv(prof, outdir / "gene_pseudobulk_profiles.csv",
+                        contracts.gene_profiles_spec(cfg, n_members))
+    contracts.write_csv(pairs, outdir / "expression_pairs.csv",
+                        contracts.expression_pairs_spec(cfg, n_members))
+    contracts.write_csv(marks, outdir / "marker_profiles.csv",
+                        contracts.gene_profiles_spec(cfg, len(mk), marker=True))
+
+    checks: dict = {}
+    focal_tissue = cfg.tissues["focal"]
+    for lib in libraries(cfg):
+        want = lib.get("total_counts_expected")
+        got = int(counts[lib["gsm"]].sum())
+        if want is not None:
+            config.evaluate_check(
+                cfg, "library_total_counts", got == int(want),
+                {"library": lib["gsm"], "expected": int(want), "observed": got},
+                sink=checks.setdefault("library_total_counts", {}),
+            )
+    absent = marks.loc[~marks.in_matrix.astype(bool), "gene_id"].tolist()
 
     manifest = {
-        "source_series": "GSE226149",
-        "source_note": "mature nodule + root, protoplast scRNA-seq, used as pseudobulk",
-        "rejected_series": "GSE270392",
-        "rejected_reason": (
-            "snRNA-seq of early nodule; Lba ranks 45,386/52,594 with 668 counts "
-            "against a median gene total of 2,496; 9-33 co-detected nuclei per Lb pair"
-        ),
-        "libraries": {g: {"stem": s, "tissue": t, "total_counts": int(counts[g].sum())}
-                      for g, (s, t) in SAMPLES.items()},
-        "normalisation": "CPM over summed library counts; no cell calling",
+        "config_digest": cfg.digest(),
+        "resolution": cfg["expression.resolution"],
+        "source_series": cfg["expression.series.accession"],
+        "source_note": cfg["expression.series.note"],
+        "rejected_series": cfg.get("expression.rejected_series.accession"),
+        "rejected_reason": cfg.get("expression.rejected_series.reason"),
+        "libraries": {lib["gsm"]: {"stem": lib["stem"], "tissue": lib["tissue"],
+                                   "total_counts": int(counts[lib["gsm"]].sum())}
+                      for lib in libraries(cfg)},
+        "tissue_roles": cfg.tissues,
+        "input_sha256": input_checksums(cfg, datadir),
+        "normalisation": f"{cfg['expression.pseudobulk.normalisation'].upper()} over "
+                         f"summed library counts; no cell calling",
         "metrics_emitted": ["cpm per library", "cpm mean per tissue",
                             "tau over tissue means", "spearman of log1p-CPM profiles",
-                            "log2 fold change mean and SD, all libraries and nodule only",
+                            "log2 fold change mean and SD, all libraries and "
+                            f"{focal_tissue} only",
                             "dose_ratio and directional coverage fractions"],
         "log2fc": {
-            "orientation": "a over b, in the canonical label_a/label_b order",
-            "pseudocount_cpm": LOG2FC_PSEUDOCOUNT_CPM,
-            "pseudocount_reason": (
-                "two of three root libraries are at exactly 0 CPM for every "
-                "leghemoglobin, so an unregularised ratio is 0/0 there"
-            ),
-            "pseudocount_scope_caveat": (
-                "negligible for the four focal genes (nodule CPM 5,000-19,000) "
-                "but not for GmLb5 (1.5-2.4 CPM) or Hb1 (<0.5 CPM): fold changes "
-                "involving those are regularised, not measured ratios"
-            ),
-            "sd_caveat": (
-                "log2fc_sd_all is dominated by the nodule-vs-root step, not by "
-                "variability in the ratio; log2fc_sd_nodule is over 2 libraries"
-            ),
+            "orientation": cfg["expression.metrics.log2fc_orientation"],
+            "pseudocount_cpm": float(cfg["expression.metrics.log2fc_pseudocount_cpm"]),
+            "pseudocount_reason": PSEUDOCOUNT_REASON,
+            "pseudocount_scope_caveat": PSEUDOCOUNT_SCOPE_CAVEAT,
+            "sd_caveat": (f"log2fc_sd_all is dominated by the inter-tissue step, not "
+                          f"by variability in the ratio; log2fc_sd_{focal_tissue} is "
+                          f"over {len(cfg.libraries_for_tissue(focal_tissue))} "
+                          f"libraries"),
         },
-        "metrics_not_computable": {
-            "detection_rate": "per-cell quantity; pseudobulk has no cells",
-            "coexpression_overlap": "per-cell quantity; pseudobulk has no cells",
-        },
-        "tau_caveat": "two tissue types only; tau collapses to a nodule-vs-root contrast",
+        "metrics_degenerate": cfg.get("expression.metrics.degenerate_columns") or {},
+        "metrics_not_computable": cfg.get("expression.metrics.not_computable") or {},
+        "tau_caveat": cfg.get("expression.metrics.tau_caveat"),
+        "markers_absent_from_series": absent,
+        "validation_checks": checks,
     }
-    (outdir / "manifest.json").write_text(json.dumps(manifest, indent=2))
+    (outdir / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str))
     return {"counts": counts, "cpm": cpm, "profiles": prof, "pairs": pairs,
             "markers": marks, "manifest": manifest}
-
-
-if __name__ == "__main__":
-    import argparse
-
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--datadir", default="data/expression")
-    ap.add_argument("--outdir", default="results/expression_module")
-    ap.add_argument("--no-fetch", action="store_true",
-                    help="fail instead of downloading missing libraries")
-    a = ap.parse_args()
-    r = run(a.datadir, a.outdir, fetch=not a.no_fetch)
-    print(r["profiles"].to_string(index=False))

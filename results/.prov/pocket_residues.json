@@ -1,0 +1,64 @@
+{
+  "checks": {
+    "pocket_uniprot_crosscheck": {
+      "accession": "P02238",
+      "n_inside_pocket": 4,
+      "n_sites": 5,
+      "passed": true,
+      "policy": "warn",
+      "sites": [
+        {
+          "description": "",
+          "ligand": "heme b",
+          "ligand_part": null,
+          "position": 46
+        },
+        {
+          "description": "",
+          "ligand": "O2",
+          "ligand_part": null,
+          "position": 62
+        },
+        {
+          "description": "",
+          "ligand": "heme b",
+          "ligand_part": null,
+          "position": 65
+        },
+        {
+          "description": "proximal binding residue",
+          "ligand": "heme b",
+          "ligand_part": "Fe",
+          "position": 93
+        },
+        {
+          "description": "",
+          "ligand": "heme b",
+          "ligand_part": null,
+          "position": 96
+        }
+      ]
+    }
+  },
+  "config_digest": "eaa6afbc423e",
+  "config_source": "config/config.yaml",
+  "generated_utc": "2026-09-22T19:02:57Z",
+  "inputs_sha256": {
+    "results/sequence_module/globins.aln.faa": "894668d41dbf9e7af733311a6713de72cf6305355027a14eec53f78abd0e4dab",
+    "results/sequence_module/globins.faa": "285bf1079d363a0c45822d2beed9a4a428a76340266ac0a8025bfc77af40f6ca",
+    "results/structure_module/uniprot_accessions.csv": "c9a77a1e72a45da0ac20e1ee7ea220b1385c54e1d63174d66a70b165f39bb6f6",
+    "work/structure/templates/pocket_1BIN_HEM_5.0.json": "e8aa6bc04ed316686277dbfa6e89c8b6dd0c2df093f1ce21a3d1c6e6212e2e54"
+  },
+  "n_alignment_columns": 23,
+  "outputs_sha256": {
+    "results/structure_module/pocket_residues.csv": "2e17d7ad6e122b626f2bf2b116b0b146e9bd4e378fafaa3ecb80e95aaf75c6a4",
+    "work/structure/pocket_columns.json": "b0fbda61a84bc5878e4eba91cee4e9e171254e2f597340dfa127651c43c7a82d"
+  },
+  "params": {
+    "reference_member": "Lba"
+  },
+  "python": "3.11.16",
+  "step": "pocket_residues",
+  "tools": {},
+  "unmappable_resnums": []
+}

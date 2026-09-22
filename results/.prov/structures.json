@@ -1,0 +1,43 @@
+{
+  "checks": {
+    "model_vs_reference_sequence": {
+      "differing": [
+        {
+          "label": "Glyma.10G198900_GmLb5",
+          "len_delta": 17,
+          "pid_model_vs_a4": 100.0
+        }
+      ],
+      "exempted": {},
+      "max_len_delta": 20,
+      "min_identity": 99.0,
+      "passed": true,
+      "policy": "warn",
+      "unexplained": []
+    }
+  },
+  "config_digest": "eaa6afbc423e",
+  "config_source": "config/config.yaml",
+  "generated_utc": "2026-09-22T19:03:01Z",
+  "inputs_sha256": {
+    "results/sequence_module/globins.faa": "285bf1079d363a0c45822d2beed9a4a428a76340266ac0a8025bfc77af40f6ca",
+    "results/structure_module/uniprot_accessions.csv": "c9a77a1e72a45da0ac20e1ee7ea220b1385c54e1d63174d66a70b165f39bb6f6",
+    "work/structure/afdb/AF-A0A0R0HW51-F1.meta.json": "a273112b7b7e1d7ee1da3a74eaea36e7df62eb2319a83ba87b3a462d16a6030b",
+    "work/structure/afdb/AF-I1LJI1-F1.meta.json": "907c23ba5c9a5b74e52c6f838345d34473da10e4445af126992fcf21d9c630e4",
+    "work/structure/afdb/AF-P02235-F1.meta.json": "430684c6db2673a97ff21b41e62ffad9ef198d8a63c8d95577be41b3e41e33f9",
+    "work/structure/afdb/AF-P02236-F1.meta.json": "e5e9ef9f47bc9a1f2ecab057707e2b50b38a78605b4eb468045050e0a4b4bf8b",
+    "work/structure/afdb/AF-P02237-F1.meta.json": "3329d89909f29177ca997f8f8566b1fd6bf46ccb6f398888c4cfa0028f9b02c0",
+    "work/structure/afdb/AF-P02238-F1.meta.json": "6f86d0d1f39ea5b8f8187f20e8bd9c7b197b29fbc3503ed594061dfc905fa74b",
+    "work/structure/afdb/AF-Q42785-F1.meta.json": "845deb2198a75598582142f52e0b3a7bfc09dece6f649a1e126755ab54e35cbe"
+  },
+  "outputs_sha256": {
+    "results/structure_module/structures.csv": "ad33cb5306639cdea6842a02441277aa9f67bfb0c7c72b63e32700aff48b72bc"
+  },
+  "params": {
+    "max_len_delta": 20,
+    "min_identity": 99.0
+  },
+  "python": "3.11.16",
+  "step": "structures",
+  "tools": {}
+}

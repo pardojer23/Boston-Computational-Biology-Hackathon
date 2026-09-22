@@ -1,8 +1,10 @@
 {
+  "config_digest": "eaa6afbc423e",
+  "resolution": "pseudobulk",
   "source_series": "GSE226149",
   "source_note": "mature nodule + root, protoplast scRNA-seq, used as pseudobulk",
   "rejected_series": "GSE270392",
-  "rejected_reason": "snRNA-seq of early nodule; Lba ranks 45,386/52,594 with 668 counts against a median gene total of 2,496; 9-33 co-detected nuclei per Lb pair",
+  "rejected_reason": "snRNA-seq of early nodule; Lba ranks 45,386/52,594 with 668 counts against a median gene total of 2,496; 9-33 co-detected nuclei per Lb pair; the intended negative control Hb2 is the most abundant globin present",
   "libraries": {
     "GSM7065810": {
       "stem": "Nodule_sample1",
@@ -30,6 +32,22 @@
       "total_counts": 31599717
     }
   },
+  "tissue_roles": {
+    "focal": "nodule",
+    "contrast": "root"
+  },
+  "input_sha256": {
+    "GSM7065810_Nodule_sample1_matrix.mtx.gz": "562b40984f1b4afe4456bac5d14ac67a3fb76f08c0be6e150ff649b83714c8c5",
+    "GSM7065810_Nodule_sample1_features.tsv.gz": "5c695dc47057fe30eaeaf339f92dcaa045446b5e3a62f194850627e696275931",
+    "GSM7065811_Nodule_sample2_matrix.mtx.gz": "93f043aa3efb420edcf26e92d000bce0e8f67569cd7377b520d049ab6ecdbafa",
+    "GSM7065811_Nodule_sample2_features.tsv.gz": "5c695dc47057fe30eaeaf339f92dcaa045446b5e3a62f194850627e696275931",
+    "GSM7065807_Root_sample1_matrix.mtx.gz": "9d7697dbad6b7d909e3e795da7c78bc9797eb8af6159586bade3e3feeca6eae2",
+    "GSM7065807_Root_sample1_features.tsv.gz": "5c695dc47057fe30eaeaf339f92dcaa045446b5e3a62f194850627e696275931",
+    "GSM7065808_Root_sample2_matrix.mtx.gz": "744465c60c975c832b9caa437906e7b02bfa7eb73245b81ebf8f358a0573849f",
+    "GSM7065808_Root_sample2_features.tsv.gz": "5c695dc47057fe30eaeaf339f92dcaa045446b5e3a62f194850627e696275931",
+    "GSM7065809_Root_sample3_matrix.mtx.gz": "1f76a634194dafbdd192af69be599a7a4fd32608d8ecb5c03d12eb0d53289f69",
+    "GSM7065809_Root_sample3_features.tsv.gz": "5c695dc47057fe30eaeaf339f92dcaa045446b5e3a62f194850627e696275931"
+  },
   "normalisation": "CPM over summed library counts; no cell calling",
   "metrics_emitted": [
     "cpm per library",
@@ -42,13 +60,30 @@
   "log2fc": {
     "orientation": "a over b, in the canonical label_a/label_b order",
     "pseudocount_cpm": 1.0,
-    "pseudocount_reason": "two of three root libraries are at exactly 0 CPM for every leghemoglobin, so an unregularised ratio is 0/0 there",
-    "pseudocount_scope_caveat": "negligible for the four focal genes (nodule CPM 5,000-19,000) but not for GmLb5 (1.5-2.4 CPM) or Hb1 (<0.5 CPM): fold changes involving those are regularised, not measured ratios",
-    "sd_caveat": "log2fc_sd_all is dominated by the nodule-vs-root step, not by variability in the ratio; log2fc_sd_nodule is over 2 libraries"
+    "pseudocount_reason": "two of three contrast-tissue libraries are at exactly 0 CPM for every family member, so an unregularised ratio is 0/0 there",
+    "pseudocount_scope_caveat": "negligible for the high-expressed focal genes but not for members near the detection floor: fold changes involving those are regularised, not measured ratios",
+    "sd_caveat": "log2fc_sd_all is dominated by the inter-tissue step, not by variability in the ratio; log2fc_sd_nodule is over 2 libraries"
+  },
+  "metrics_degenerate": {
+    "spearman_profile": "1.000 for all six focal pairs over 5 points; carries no information at this resolution"
   },
   "metrics_not_computable": {
     "detection_rate": "per-cell quantity; pseudobulk has no cells",
     "coexpression_overlap": "per-cell quantity; pseudobulk has no cells"
   },
-  "tau_caveat": "two tissue types only; tau collapses to a nodule-vs-root contrast"
+  "tau_caveat": "two tissue types only; tau collapses to a focal-vs-contrast contrast",
+  "markers_absent_from_series": [
+    "Glyma.10G121524"
+  ],
+  "validation_checks": {
+    "library_total_counts": {
+      "library_total_counts": {
+        "policy": "warn",
+        "library": "GSM7065809",
+        "expected": 31599717,
+        "observed": 31599717,
+        "passed": true
+      }
+    }
+  }
 }

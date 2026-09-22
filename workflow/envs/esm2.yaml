@@ -1,0 +1,29 @@
+# Environment for the ESM2 embedding rule, and nothing else.
+#
+# torch pulls a large dependency set that has no business constraining the
+# bioconda solve for hmmer/mafft/iqtree, so the embedding step gets its own
+# environment. Under Snakemake this is a per-rule `conda:` directive rather
+# than something the operator has to remember to activate — which is what the
+# --skip-esm2 / --reuse-esm2 flag pair in the old runner was working around.
+#
+# Note on weight downloads: the weights do not come from huggingface.co. They
+# come from cas-server.xethub.hf.co (Xet) or us.aws.cdn.hf.co (LFS fallback).
+# Behind an egress allowlist, allowing only huggingface.co fails at the weights
+# step *after* the config has downloaded, which looks like a corrupt cache
+# rather than a network policy. HF_HUB_DISABLE_XET=1 forces the LFS route; the
+# Rust Xet client ignores HTTP proxies, the LFS one does not.
+name: esm2
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  # numpy is held at 1.x here: torch 2.13's conda-forge build resolves against
+  # it, and this environment shares no arrays with the 2.x analysis env — the
+  # only thing crossing the boundary is a CSV.
+  - numpy=1.26.4
+  - pandas=3.0.6
+  - pyyaml=6.0.3
+  - pytorch=2.13.0
+  - transformers=5.16.1
+  - safetensors=0.8.0
+  - tokenizers=0.23.1

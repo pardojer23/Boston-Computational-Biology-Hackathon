@@ -1,0 +1,8 @@
+gene_id,uniprot,entry_name,uniprot_protein_name,uniprot_length,uniprot_reviewed,n_uniprot_hits,uniprot_release,resolution,label
+Glyma.20G191200,P02236,LGB4_SOYBN,Leghemoglobin 4 (GmLb4) (Hemoglobin 2-5) (GmGLB2-5) (Leghemoglobin C2) (GmLbc2),145,True,1,2026_03,live,Glyma.20G191200_Lbc2
+Glyma.10G199000,P02235,LGB2_SOYBN,Leghemoglobin 2 (GmLb2) (Hemoglobin 2-3) (GmGLB2-3) (Leghemoglobin C1) (GmLbc1) (Nodulin-50) (N-50),144,True,1,2026_03,live,Glyma.10G199000_Lbc1
+Glyma.10G199100,P02238,LGB3_SOYBN,Leghemoglobin 3 (GmLb3) (Hemoglobin 2-4) (GmGLB2-4) (Leghemoglobin alpha) (GmLba) (Leghemoglobin A) (Nodulin-2) (N-2),144,True,1,2026_03,live,Glyma.10G199100_Lba
+Glyma.10G198800,P02237,LGB1_SOYBN,Leghemoglobin 1 (GmLb1) (Hemoglobin 2-1) (GmGLB2-1) (Leghemoglobin C3) (GmLbc3),145,True,1,2026_03,live,Glyma.10G198800_Lbc3
+Glyma.11G121800,Q42785,NSHB2_SOYBN,Anaerobic nitrite reductase Hb2 (EC 1.7.2.-) (Hemoglobin 1-2) (GmGLB1-2) (Non-symbiotic hemoglobin 1) (Non-symbiotic hemoglobin 2) (GmHb2),161,True,1,2026_03,live,Glyma.11G121800_Hb2
+Glyma.11G121700,I1LJI1,NSHB1_SOYBN,Anaerobic nitrite reductase Hb1 (EC 1.7.2.-) (Hemoglobin 1-1) (GmGLB1-1) (Non-symbiotic hemoglobin 1) (GmHb1) (Non-symbiotic hemoglobin 1-like),157,True,1,2026_03,live,Glyma.11G121700_Hb1
+Glyma.10G198900,A0A0R0HW51,LGB5_SOYBN,Leghemoglobin 5 (GmLb5) (Hemoglobin 2-2) (GmGLB2-2),168,True,1,2026_03,live,Glyma.10G198900_GmLb5
