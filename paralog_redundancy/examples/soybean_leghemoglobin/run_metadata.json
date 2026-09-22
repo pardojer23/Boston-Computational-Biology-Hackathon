@@ -1,0 +1,33 @@
+{
+  "method_source": "De Kegel B, Ryan CJ (2019) PLoS Genet 15:e1008466",
+  "species": "glycine_max",
+  "seed_genes": [
+    "GLYMA_10G198800",
+    "GLYMA_10G198900",
+    "GLYMA_10G199000",
+    "GLYMA_10G199100",
+    "GLYMA_20G191200"
+  ],
+  "min_identity": 20.0,
+  "window_bp": 400000,
+  "wgd_node": [
+    "Glycine_subgen._Soja"
+  ],
+  "synteny": true,
+  "ensembl_rest": "https://rest.ensembl.org",
+  "assembly": "Glycine_max_v2.1",
+  "blocks": {
+    "chr10_chr20": {
+      "chrom_A": "10",
+      "chrom_B": "20",
+      "window_bp": 400000,
+      "genes_window_A": 89,
+      "genes_window_B": 83,
+      "n_anchors": 76,
+      "anchored_genes_B": 67,
+      "spearman_rho": -0.9515195024734182,
+      "is_block": true
+    }
+  },
+  "generated_utc": "2026-09-22T15:59:07Z"
+}

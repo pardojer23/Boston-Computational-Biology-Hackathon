@@ -1,0 +1,5 @@
+python paralog_redundancy.py \
+    --species glycine_max \
+    --genes GLYMA_10G198800 GLYMA_10G198900 GLYMA_10G199000 GLYMA_10G199100 GLYMA_20G191200 \
+    --wgd-node Glycine_subgen._Soja \
+    --out examples/soybean_leghemoglobin

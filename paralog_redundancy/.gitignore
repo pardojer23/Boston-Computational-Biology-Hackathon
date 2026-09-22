@@ -1,0 +1,5 @@
+# Ensembl REST response cache — regenerated on demand, not source
+.ensembl_cache/
+__pycache__/
+*.pyc
+results/
