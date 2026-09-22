@@ -1,0 +1,51 @@
+$ diamond --version
+diamond version 2.1.8
+
+diamond version 2.1.8
+
+DupGen_finder: True
+$ wget -q https://data.soybase.org/Glycine/max/annotations/Wm82.gnm4.ann1.T8TQ/glyma.Wm82.gnm4.ann1.T8TQ.protein_primary.faa.gz -O raw/glyma.Wm82.gnm4.ann1.T8TQ.protein_primary.faa.gz
+$ wget -q https://data.soybase.org/Glycine/max/annotations/Wm82.gnm4.ann1.T8TQ/glyma.Wm82.gnm4.ann1.T8TQ.gene_models_main.bed.gz -O raw/glyma.Wm82.gnm4.ann1.T8TQ.gene_models_main.bed.gz
+$ wget -q https://data.soybase.org/Phaseolus/vulgaris/annotations/G19833.gnm2.ann1.PB8d/phavu.G19833.gnm2.ann1.PB8d.protein_primary.faa.gz -O raw/phavu.G19833.gnm2.ann1.PB8d.protein_primary.faa.gz
+$ wget -q https://data.soybase.org/Phaseolus/vulgaris/annotations/G19833.gnm2.ann1.PB8d/phavu.G19833.gnm2.ann1.PB8d.gene_models_main.bed.gz -O raw/phavu.G19833.gnm2.ann1.PB8d.gene_models_main.bed.gz
+glyma primary proteins: 52872
+phavu primary proteins: 27433
+glyma gff rows: 52872 | phavu gff rows: 27433
+$ diamond makedb --in glyma.pep -d glyma --quiet
+$ diamond makedb --in phavu.pep -d phavu --quiet
+$ diamond blastp -d glyma -q glyma.pep -o glyma.blast -p 16 --sensitive --max-target-seqs 5 --evalue 1e-10 --quiet
+$ diamond blastp -d phavu -q glyma.pep -o glyma_phavu.blast -p 16 --sensitive --max-target-seqs 5 --evalue 1e-10 --quiet
+glyma.blast: 216462 hits
+glyma_phavu.blast: 177637 hits
+filter[numeric]: glyma 178542 hits, glyma_phavu 123172 hits
+filter[lexicographic]: glyma 124817 hits, glyma_phavu 122985 hits
+$ DupGen_finder.pl -i /work/data_numeric -t glyma -c phavu -o /work/results_numeric
+Reading BLAST file and pre-processing
+Generating BLAST list
+80543 matches imported (45404 discarded)
+459 pairwise comparisons
+921 alignments generated
+Pairwise collinear blocks written to /work/results_numeric/glyma.collinearity [2.427 seconds elapsed]
+Reading BLAST file and pre-processing
+Generating BLAST list
+123172 matches imported (0 discarded)
+765 pairwise comparisons
+1695 alignments generated
+Pairwise collinear blocks written to /work/results_numeric/glyma_phavu.collinearity [3.610 seconds elapsed]
+
+DupGen_finder[numeric] produced: ['glyma.collinearity', 'glyma.dispersed.genes', 'glyma.dispersed.pairs', 'glyma.gff.sorted', 'glyma.pairs.stats', 'glyma.proximal.genes', 'glyma.proximal.pairs', 'glyma.singletons', 'glyma.tandem.genes', 'glyma.tandem.pairs', 'glyma.transposed.genes', 'glyma.transposed.pairs', 'glyma.wgd.genes', 'glyma.wgd.pairs', 'glyma_phavu.collinearity']
+$ DupGen_finder.pl -i /work/data_lexicographic -t glyma -c phavu -o /work/results_lexicographic
+Reading BLAST file and pre-processing
+Generating BLAST list
+79908 matches imported (44909 discarded)
+454 pairwise comparisons
+910 alignments generated
+Pairwise collinear blocks written to /work/results_lexicographic/glyma.collinearity [2.323 seconds elapsed]
+Reading BLAST file and pre-processing
+Generating BLAST list
+122985 matches imported (0 discarded)
+764 pairwise comparisons
+1690 alignments generated
+Pairwise collinear blocks written to /work/results_lexicographic/glyma_phavu.collinearity [3.603 seconds elapsed]
+
+DupGen_finder[lexicographic] produced: ['glyma.collinearity', 'glyma.dispersed.genes', 'glyma.dispersed.pairs', 'glyma.gff.sorted', 'glyma.pairs.stats', 'glyma.proximal.genes', 'glyma.proximal.pairs', 'glyma.singletons', 'glyma.tandem.genes', 'glyma.tandem.pairs', 'glyma.transposed.genes', 'glyma.transposed.pairs', 'glyma.wgd.genes', 'glyma.wgd.pairs', 'glyma_phavu.collinearity']

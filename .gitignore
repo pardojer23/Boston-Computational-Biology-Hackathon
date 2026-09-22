@@ -216,3 +216,98 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
+# ======================================================================
+# Appended for the hackathon — the existing Python template covers build
+# artifacts but not research data. Do not replace that file; add this.
+# ======================================================================
+
+# ---- Data (obtain via data/README.md; never commit) ----
+data/*
+!data/README.md
+!data/.gitkeep
+
+# Sequencing / alignment
+*.fastq
+*.fastq.gz
+*.fq
+*.fq.gz
+*.bam
+*.bai
+*.cram
+*.crai
+*.sam
+
+# Variants / intervals / tracks
+*.vcf
+*.vcf.gz
+*.vcf.gz.tbi
+*.bed
+*.bed.gz
+*.gtf
+*.gff
+*.gff3
+*.bigWig
+*.bw
+
+# Matrices / single-cell / arrays
+*.h5
+*.hdf5
+*.h5ad
+*.loom
+*.mtx
+*.mtx.gz
+*.zarr/
+*.npy
+*.npz
+*.parquet
+*.feather
+
+# R objects
+*.rds
+*.RData
+.Rhistory
+.Rapp.history
+.Rproj.user/
+.Renviron
+
+# Reference genomes / indices
+*.fa
+*.fa.gz
+*.fasta
+*.fasta.gz
+*.fai
+*.2bit
+*.dict
+
+# Model weights
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.joblib
+*.pkl
+
+# ---- Large / generated outputs ----
+results/**/*.pdf
+results/**/*.tif
+results/**/*.tiff
+logs/
+*.log
+
+# ---- Secrets ----
+.env
+.env.*
+*.pem
+*.key
+credentials.json
+secrets.yaml
+.netrc
+
+# ---- OS / editors ----
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
