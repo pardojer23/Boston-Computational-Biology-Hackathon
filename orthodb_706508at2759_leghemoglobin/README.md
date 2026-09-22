@@ -9,11 +9,16 @@ MAFFT + IQ-TREE 2 dispatched as a [Modal](https://modal.com) Function.
 - **Source:** [OrthoDB REST API](https://www.orthodb.org/) —
   `https://data.orthodb.org/current/group?id=706508at2759` (group metadata)
   and `.../fasta?id=706508at2759` (member protein sequences).
-- **Group:** leghemoglobin A, 197 gene sequences across 57 species (30
-  single-copy, 29 multi-copy). Leghemoglobins are legume oxygen-carrier
-  globins expressed in nitrogen-fixing root nodules; the group here also
-  pulls in a handful of non-legume globin/protoglobin homologs used by
-  OrthoDB as outgroup context (e.g. *Chlorella*, *Salpingoeca*).
+- **Group:** leghemoglobin A, 197 gene sequences across 57 species in the
+  fetched/aligned dataset (28 single-copy, 29 multi-copy — counted directly
+  from `results/group_706508at2759_clean.fasta`). OrthoDB's whole-database
+  phyletic profile for this group reports a larger footprint (present in 59
+  species, 30 single-copy/29 multi-copy across the full database), which
+  does not exactly match the 57-species set actually returned by the
+  `fasta` endpoint and used to build this tree. Leghemoglobins are legume
+  oxygen-carrier globins expressed in nitrogen-fixing root nodules; the
+  group here also pulls in a non-legume globin/protoglobin homolog used by
+  OrthoDB as outgroup context (*Salpingoeca rosetta*).
 
 ## Pipeline
 
