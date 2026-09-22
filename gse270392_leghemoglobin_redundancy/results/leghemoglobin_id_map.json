@@ -1,0 +1,55 @@
+[
+  {
+    "odb_id": "3847_0:006070",
+    "orthodb_gene_id": "GLYMA_10G198900v4",
+    "orthodb_description": "hypothetical protein",
+    "ncbi_synonym_hit": null,
+    "glyma_id_direct_from_orthodb_tag": "Glyma.10G198900",
+    "glyma_id_from_blast": "Glyma.10G198900",
+    "blast_pct_identity": 100.0
+  },
+  {
+    "odb_id": "3847_0:006217",
+    "orthodb_gene_id": "N-50",
+    "orthodb_description": "Leghemoglobin C1",
+    "ncbi_synonym_hit": {
+      "ncbi_gene_id": "100785236",
+      "symbol": "LB2",
+      "description": "leghemoglobin C1"
+    },
+    "glyma_id_direct_from_orthodb_tag": null,
+    "glyma_id_from_blast": "Glyma.10G199000",
+    "blast_pct_identity": 100.0
+  },
+  {
+    "odb_id": "3847_0:0065e0",
+    "orthodb_gene_id": "GLYMA_10G198800v4",
+    "orthodb_description": "Leghemoglobin C3",
+    "ncbi_synonym_hit": null,
+    "glyma_id_direct_from_orthodb_tag": "Glyma.10G198800",
+    "glyma_id_from_blast": "Glyma.10G198800",
+    "blast_pct_identity": 100.0
+  },
+  {
+    "odb_id": "3847_0:0065fa",
+    "orthodb_gene_id": "N-2",
+    "orthodb_description": "Leghemoglobin A",
+    "ncbi_synonym_hit": {
+      "ncbi_gene_id": "100527427",
+      "symbol": "LB3",
+      "description": "Leghemoglobin A"
+    },
+    "glyma_id_direct_from_orthodb_tag": null,
+    "glyma_id_from_blast": "Glyma.10G199100",
+    "blast_pct_identity": 100.0
+  },
+  {
+    "odb_id": "3847_0:00ca2d",
+    "orthodb_gene_id": "GLYMA_20G191200v4",
+    "orthodb_description": "Leghemoglobin C2",
+    "ncbi_synonym_hit": null,
+    "glyma_id_direct_from_orthodb_tag": "Glyma.20G191200",
+    "glyma_id_from_blast": "Glyma.20G191200",
+    "blast_pct_identity": 100.0
+  }
+]

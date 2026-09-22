@@ -1,0 +1,26 @@
+{
+  "pearson_r_raw_counts": 0.7853,
+  "pearson_r_cpm": 0.7543,
+  "detected_paralogs": {
+    "Glyma.10G198800": "Lbc3 (LB1)",
+    "Glyma.20G191200": "Lbc2 (LB4)"
+  },
+  "undetected_paralogs": {
+    "Glyma.10G199000": "Lbc1 (LB2) -- N-50 / Nodulin-50",
+    "Glyma.10G199100": "Lba (LB3) -- N-2 / Nodulin-2",
+    "Glyma.10G198900": "unnamed paralog near cluster (NCBI: pseudogene LB5)"
+  },
+  "modal_seurat_probe_confirmation": {
+    "tissue": "Early_nodule",
+    "rna_assay_dim": [
+      40127,
+      12609
+    ],
+    "rna_assay_absent_genes": [
+      "Glyma.10G199000",
+      "Glyma.10G199100",
+      "Glyma.10G198900"
+    ],
+    "note": "Confirmed absent even in the full unfiltered RNA assay -- genuine non-detection, not a curated-file filtering artifact."
+  }
+}
