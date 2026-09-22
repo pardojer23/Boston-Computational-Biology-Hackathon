@@ -107,8 +107,8 @@ single-nucleus release.
 ## Redundancy metrics via the Benoit et al. (2025) framework
 
 [Benoit et al., "Solanum pan-genetics reveals paralogues as contingencies in
-crop engineering"](https://doi.org/10.1038/s41586-025-08619-6) (*Nature*
-640:135-145, 2025) defines a quantitative, expression-based scheme for
+crop engineering"](https://doi.org/10.1038/s41586-025-08619-6) (*Nature*,
+2025) defines a quantitative, expression-based scheme for
 classifying retained paralogue pairs, built around four metrics: a
 tissue-specificity index (tau, Yanai et al. 2005), expression breadth,
 non-functional/tissue-specific gene calls, and a four-group
@@ -168,6 +168,43 @@ As before, this classification could only be computed for the one pair
 (Lbc3, Lbc2) that both have usable expression data in GSE270392; Lbc1, Lba,
 and the unnamed locus cannot be placed in this scheme with this dataset.
 
+## Metrics across all 112 cell types (all 7 tissues combined)
+
+The nodule-only and Benoit et al. analyses above use the 14 nodule cell
+states, since that is the only tissue with nonzero expression of both
+paralogs. `code/all_celltype_metrics.py` extends the same four base
+statistics (Pearson, Spearman, mean and s.d. of \|log2 fold change\|) to
+**all 112 annotated cell states across all 7 tissues** (14 nodule + 12 root +
+16 hypocotyl + 18 cotyledon-stage seed + 17 early-maturation-stage seed + 18
+globular-stage seed + 17 heart-stage seed):
+
+| Metric | Value | Basis |
+|---|---|---|
+| Pearson r (raw CPM) | **0.836** (p = 1.8e-30) | all 112 cell types |
+| Spearman r (raw CPM) | **0.959** (p = 2.8e-62) | all 112 cell types |
+| Pearson r (log2(CPM+1)) | 0.942 | all 112 cell types |
+| Spearman r (log2(CPM+1)) | 0.959 | all 112 cell types |
+| mean \|log2FC\| | **0.76** | 12 cell types with nonzero expression in both |
+| s.d. \|log2FC\| | **0.73** | 12 cell types with nonzero expression in both |
+
+**Read the raw-CPM Pearson/Spearman with this caveat**: of the 112 cell
+types, 99 have zero expression of *both* genes (every cell type outside the
+nodule -- see the figure below), and only 12 (all in the nodule) have nonzero
+expression of both. Pooling in the 99 trivial zero/zero agreements inflates
+both correlations relative to a same-tissue-only comparison; that is why raw
+Pearson r rises from 0.696 (log-transformed, 14 nodule cell types only, used
+as the correlation input for the Benoit et al. classification above) to
+0.836 here, and Spearman rises further still (0.959), since a rank-based
+statistic is especially sensitive to a large block of tied zeros. The
+log2(CPM+1) Pearson (0.942) and Spearman (0.959) are closer to the
+nodule-only numbers because the log transform compresses the zero/zero block
+into a single tied value rather than letting it dominate the linear scale.
+The fold-change statistics are unaffected by this and are numerically
+identical to the nodule-only pass, since a fold change is undefined (and
+excluded) for any cell type where either gene is zero.
+
+![Lbc3 vs Lbc2 across all 112 cell types, all 7 tissues](results/leghemoglobin_all_celltype_metrics.png)
+
 ## Files
 
 - `code/fetch_gse270392.py` -- downloads GEO series metadata and the 7
@@ -183,9 +220,15 @@ and the unnamed locus cannot be placed in this scheme with this dataset.
 - `code/benoit_metrics.py` -- applies the Benoit et al. (2025) tau/breadth/
   functional-call/expression-group-classification framework; writes
   `results/benoit_metrics_results.json`.
+- `code/all_celltype_metrics.py` -- Pearson, Spearman, mean/s.d. \|log2FC\|
+  across all 112 cell types from all 7 tissues; writes
+  `results/all_celltype_metrics_results.json`,
+  `results/all_celltype_expression.csv`.
 - `results/leghemoglobin_redundancy.png` -- summary figure (above).
 - `results/paralog_expression_group_classification.png` -- Lbc3-Lbc2 in the
   Benoit et al. classification space (above).
+- `results/leghemoglobin_all_celltype_metrics.png` -- Lbc3 vs. Lbc2 across
+  all 112 cell types (above).
 
 ## Reproducing
 
@@ -195,6 +238,7 @@ python code/map_leghemoglobin_ids.py
 python code/modal_seurat_probe.py <tissue_rds_gz_url> seurat_probe_result.json
 python code/redundancy_analysis.py
 python code/benoit_metrics.py
+python code/all_celltype_metrics.py
 ```
 
 `modal_seurat_probe.py` requires a Modal account and an authenticated

@@ -1,0 +1,16 @@
+{
+  "n_cell_types_total": 112,
+  "n_cell_types_nonzero_both": 12,
+  "n_cell_types_zero_both": 99,
+  "pearson_r_raw_CPM": 0.8362,
+  "pearson_p_raw_CPM": 1.8366113557433926e-30,
+  "spearman_r_raw_CPM": 0.9594,
+  "spearman_p_raw_CPM": 2.8497017456628775e-62,
+  "pearson_r_log2CPM": 0.9415,
+  "spearman_r_log2CPM": 0.9594,
+  "mean_log2FC_signed": -0.3955,
+  "sd_log2FC_signed": 0.9906,
+  "mean_abs_log2FC": 0.7565,
+  "sd_abs_log2FC": 0.7264,
+  "note": "All 12 nonzero-both cell types are from Early_nodule; every cell type in the other 6 tissues has zero expression of both genes, so raw-CPM Pearson/Spearman are inflated by trivial zero/zero agreement across 99 of 112 points. log2(CPM+1) correlations and the fold-change statistics are computed the same way as in benoit_metrics.py's nodule-only pass and are numerically identical to it, since only nodule cell types contribute a nonzero pair."
+}
