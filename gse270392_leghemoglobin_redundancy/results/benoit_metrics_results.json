@@ -1,0 +1,57 @@
+{
+  "per_gene": {
+    "Lbc3 (LB1)": {
+      "glyma_id": "Glyma.10G198800",
+      "tau": 1.0,
+      "expression_breadth_tissues_CPM_gt_3": 1,
+      "avg_CPM_across_7_tissues": 1.802,
+      "nonfunctional_by_paper_rule": true,
+      "nodule_specific_by_paper_rule": true
+    },
+    "Lbc2 (LB4)": {
+      "glyma_id": "Glyma.20G191200",
+      "tau": 1.0,
+      "expression_breadth_tissues_CPM_gt_3": 1,
+      "avg_CPM_across_7_tissues": 1.961,
+      "nonfunctional_by_paper_rule": true,
+      "nodule_specific_by_paper_rule": true
+    },
+    "Lbc1 (LB2) -- N-50 / Nodulin-50": {
+      "glyma_id": "Glyma.10G199000",
+      "tau": null,
+      "expression_breadth_tissues_CPM_gt_3": 0,
+      "avg_CPM_across_7_tissues": 0.0,
+      "nonfunctional_by_paper_rule": true,
+      "nodule_specific_by_paper_rule": false
+    },
+    "Lba (LB3) -- N-2 / Nodulin-2": {
+      "glyma_id": "Glyma.10G199100",
+      "tau": null,
+      "expression_breadth_tissues_CPM_gt_3": 0,
+      "avg_CPM_across_7_tissues": 0.0,
+      "nonfunctional_by_paper_rule": true,
+      "nodule_specific_by_paper_rule": false
+    },
+    "unnamed paralog near cluster (NCBI: pseudogene LB5)": {
+      "glyma_id": "Glyma.10G198900",
+      "tau": null,
+      "expression_breadth_tissues_CPM_gt_3": 0,
+      "avg_CPM_across_7_tissues": 0.0,
+      "nonfunctional_by_paper_rule": true,
+      "nodule_specific_by_paper_rule": false
+    }
+  },
+  "pair_classification": {
+    "pair": [
+      "Lbc3 (LB1)",
+      "Lbc2 (LB4)"
+    ],
+    "n_samples_used_nonzero_both": 12,
+    "n_samples_total": 14,
+    "genes_in_coexpression_network": 20505,
+    "rank_standardized_coexpression": 0.9447,
+    "mean_abs_log2FC": 0.7565,
+    "sd_abs_log2FC": 0.7264,
+    "benoit_group_classification": "I: Dosage balanced"
+  }
+}

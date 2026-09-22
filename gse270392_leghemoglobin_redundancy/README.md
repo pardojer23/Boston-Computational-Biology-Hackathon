@@ -104,6 +104,70 @@ speak to Lba or Lbc1, which are known from classical biochemistry to be
 expressed in soybean nodules but are not captured in this particular
 single-nucleus release.
 
+## Redundancy metrics via the Benoit et al. (2025) framework
+
+[Benoit et al., "Solanum pan-genetics reveals paralogues as contingencies in
+crop engineering"](https://doi.org/10.1038/s41586-025-08619-6) (*Nature*
+640:135-145, 2025) defines a quantitative, expression-based scheme for
+classifying retained paralogue pairs, built around four metrics: a
+tissue-specificity index (tau, Yanai et al. 2005), expression breadth,
+non-functional/tissue-specific gene calls, and a four-group
+coexpression/fold-change classification of paralogue pairs. `code/benoit_metrics.py`
+applies each of these, using the paper's exact formulas and thresholds, to
+the leghemoglobin data above.
+
+**Tau, breadth, and functional calls** (7-tissue panel; CPM stands in for the
+paper's TPM, since we lack per-gene length information for a true TPM at the
+pseudobulk level used here):
+
+| Paralog | tau | Expression breadth (tissues, CPM>3) | Avg. CPM (7 tissues) | "Non-functional" by paper's rule (avg CPM<3) | "Nodule-specific" by paper's rule (tau>0.7, peak in nodule, CPM>5) |
+|---|---|---|---|---|---|
+| Lbc3 | 1.0 | 1 / 7 | 1.80 | **True** | **True** |
+| Lbc2 | 1.0 | 1 / 7 | 1.96 | **True** | **True** |
+| Lbc1 | n/a (all-zero) | 0 / 7 | 0.00 | True | False |
+| Lba | n/a (all-zero) | 0 / 7 | 0.00 | True | False |
+| unnamed locus | n/a (all-zero) | 0 / 7 | 0.00 | True | False |
+
+The paper's own Methods flag that "tissue specificity and pseudogene calling
+are sensitive to the breadth of tissue sampling" -- our result is a direct
+illustration of that: Lbc3 and Lbc2 are unambiguously real, actively used,
+nodule-restricted genes (tau = 1.0, correctly flagged nodule-specific), yet
+the same "non-functional" rule that flags Lbc1/Lba/the unnamed locus as
+non-functional *also* flags Lbc3 and Lbc2, because averaging across 7 tissues
+in which the gene is silent in 6 of them pulls the mean under the 3-CPM
+threshold. The rule was calibrated on the paper's own tissue panel (5 organs,
+each gene typically expressed somewhere); it does not transfer cleanly to an
+extremely tissue-restricted family sampled across a wider, sparser panel.
+Read the "non-functional" column as a demonstration of that sensitivity, not
+as biological evidence that Lbc3/Lbc2 are non-functional.
+
+**Paralogue-pair expression-group classification** (Lbc3 vs. Lbc2, using the
+14 nodule cell states as samples -- the finest resolution at which both
+paralogs have expression data, the within-species analogue of the paper's
+tissue-replicate samples):
+
+| Metric | Value |
+|---|---|
+| Coexpression network value (Pearson correlation, rank-standardized against 20,505 co-detected genes) | **0.945** |
+| Mean \|log2(fold change)\| across 12 cell states with nonzero expression in both | **0.76** |
+| S.d. of \|log2(fold change)\| | **0.73** |
+| **Classification** | **Group I: dosage balanced** |
+
+By the paper's exact thresholds (coexpression > 0.9, mean \|log2FC\| < 1,
+s.d. \|log2FC\| < 1), Lbc3 and Lbc2 fall squarely in **group I, dosage
+balanced** -- the paper's own category for "selection on total dosage remains
+high, and pairs retain similar expression profiles and levels across
+tissues." This is the strongest form of expression-based evidence for
+redundancy in their scheme, and it is consistent with (and more rigorously
+supported than) the simple Pearson-correlation read given in the first half
+of this README.
+
+![Lbc3-Lbc2 in the Benoit et al. coexpression / fold-change classification space](results/paralog_expression_group_classification.png)
+
+As before, this classification could only be computed for the one pair
+(Lbc3, Lbc2) that both have usable expression data in GSE270392; Lbc1, Lba,
+and the unnamed locus cannot be placed in this scheme with this dataset.
+
 ## Files
 
 - `code/fetch_gse270392.py` -- downloads GEO series metadata and the 7
@@ -116,7 +180,12 @@ single-nucleus release.
 - `code/redundancy_analysis.py` -- computes tissue- and cell-type-level CPM
   and the Lbc3/Lbc2 correlation; writes `results/tissue_level_cpm.csv`,
   `results/nodule_celltype_cpm.csv`, `results/redundancy_summary.json`.
+- `code/benoit_metrics.py` -- applies the Benoit et al. (2025) tau/breadth/
+  functional-call/expression-group-classification framework; writes
+  `results/benoit_metrics_results.json`.
 - `results/leghemoglobin_redundancy.png` -- summary figure (above).
+- `results/paralog_expression_group_classification.png` -- Lbc3-Lbc2 in the
+  Benoit et al. classification space (above).
 
 ## Reproducing
 
@@ -125,6 +194,7 @@ python code/fetch_gse270392.py
 python code/map_leghemoglobin_ids.py
 python code/modal_seurat_probe.py <tissue_rds_gz_url> seurat_probe_result.json
 python code/redundancy_analysis.py
+python code/benoit_metrics.py
 ```
 
 `modal_seurat_probe.py` requires a Modal account and an authenticated
