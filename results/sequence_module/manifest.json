@@ -1,6 +1,6 @@
 {
   "assembly_annotation": "Wm82.gnm4.ann1.T8TQ (= Phytozome Wm82.a4.v1)",
-  "generated_utc": "2026-09-22T15:19:40Z",
+  "generated_utc": "2026-09-22T17:37:13Z",
   "runner": "pipeline/run_local.py",
   "sources": {
     "proteome": "https://data.soybase.org/Glycine/max/annotations/Wm82.gnm4.ann1.T8TQ/glyma.Wm82.gnm4.ann1.T8TQ.protein_primary.faa.gz",
@@ -37,7 +37,14 @@
     "options": "-m MFP -B 1000 --alrt 1000 --seed 20240601",
     "best_model": "Q.PLANT+I"
   },
-  "esm2": "reused from a previous run (see this file's own provenance)",
+  "esm2": {
+    "provenance": "reused from a previous run (see that run's manifest)",
+    "relabelled": {
+      "Glyma.11G121800": "Glyma.11G121800_Hb2",
+      "Glyma.11G121700": "Glyma.11G121700_Hb1",
+      "Glyma.10G198900": "Glyma.10G198900_GmLb5"
+    }
+  },
   "duplication_mode": {
     "tandem_max_intervening_genes": 10,
     "proximal_max_bp": 1000000,
@@ -46,5 +53,5 @@
       "tandem": 7
     }
   },
-  "wall_seconds": 11.3
+  "wall_seconds": 20.8
 }

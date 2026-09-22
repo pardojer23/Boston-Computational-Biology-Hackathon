@@ -12,7 +12,6 @@ AlphaFold DB and RCSB; everything downloaded is cached under
 from __future__ import annotations
 
 import argparse
-import itertools
 import json
 import sys
 import time
@@ -151,7 +150,7 @@ def main() -> None:
         chains[r.label] = (c, s)
 
     rows = []
-    for a, b in itertools.combinations(labels, 2):
+    for a, b in core.canonical_pair_order(labels):
         ca, sa = chains[a]
         cb, sb = chains[b]
         res = tm_align(ca, cb, sa, sb)
@@ -167,6 +166,7 @@ def main() -> None:
 
         rows.append({
             "label_a": a, "label_b": b,
+            "gene_a": core.gene_from_label(a), "gene_b": core.gene_from_label(b),
             "tm_score": round(tm_short, 4),
             "tm_norm_a": round(tm1, 4), "tm_norm_b": round(tm2, 4),
             "rmsd": round(float(res.rmsd), 3),

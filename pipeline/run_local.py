@@ -86,8 +86,32 @@ def main() -> int:
             print(f"      --reuse-esm2 but {cos_path} is absent", file=sys.stderr)
             return 2
         cos = pd.read_csv(cos_path, index_col=0)
-        esm2_meta = "reused from a previous run (see this file's own provenance)"
+        # A reused matrix is keyed on the labels of the run that produced it. An
+        # embedding is a per-*gene* quantity and the label is only presentation,
+        # so reuse is remapped gene_id -> current label rather than matched on
+        # the label string: adding a symbol to core.GENE_SYMBOLS would otherwise
+        # KeyError here even though the sequences are untouched. Values are not
+        # recomputed and not altered — only renamed.
+        relabel = {c: core.label_of(core.gene_from_label(c)) for c in cos.index}
+        renamed = {k: v for k, v in relabel.items() if k != v}
+        cos = cos.rename(index=relabel, columns=relabel)
+        esm2_meta = {
+            "provenance": "reused from a previous run (see that run's manifest)",
+            "relabelled": renamed or "no label changes",
+        }
         print(f"[5/6] ESM2 reused from {cos_path}", flush=True)
+        if renamed:
+            print(f"      relabelled {len(renamed)} tip(s): {renamed}", flush=True)
+            npz_path = out / "esm2_embeddings.npz"
+            if npz_path.exists():
+                import numpy as np
+
+                z = np.load(npz_path, allow_pickle=False)
+                np.savez_compressed(
+                    npz_path,
+                    labels=np.array([relabel.get(str(l), str(l)) for l in z["labels"]]),
+                    embeddings=z["embeddings"],
+                )
     elif not args.skip_esm2:
         print("[5/6] ESM2-650M embeddings (slow on CPU: ~10 min incl. download)", flush=True)
         import numpy as np

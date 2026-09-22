@@ -1,6 +1,6 @@
 {
   "afdb_api": "https://alphafold.ebi.ac.uk/api/prediction/{acc}",
-  "generated_utc": "2026-09-22T15:49:09Z",
+  "generated_utc": "2026-09-22T17:38:04Z",
   "lb_clade_pocket_identity": {
     "max": 100.0,
     "min": 91.3
@@ -50,5 +50,5 @@
   "runner": "pipeline/run_structure.py",
   "structure_source": "AlphaFold DB (no prediction run; no GPU used)",
   "tm_score_convention": "normalised by the shorter chain",
-  "wall_seconds": 12.8
+  "wall_seconds": 13.1
 }

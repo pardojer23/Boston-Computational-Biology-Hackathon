@@ -35,13 +35,16 @@ from __future__ import annotations
 
 import gzip
 import json
-from itertools import combinations
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from scipy.io import mmread
 from scipy.stats import spearmanr
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import soy_globin_core as core  # noqa: E402
 
 # --------------------------------------------------------------------------- #
 # Configuration
@@ -56,16 +59,30 @@ SAMPLES = {
     "GSM7065809": ("Root_sample3", "root"),
 }
 
-#: The globin family, as labelled by the sequence module.
-FAMILY = {
-    "Glyma.10G199100": "Lba",
-    "Glyma.10G199000": "Lbc1",
-    "Glyma.20G191200": "Lbc2",
-    "Glyma.10G198800": "Lbc3",
-    "Glyma.10G198900": "GmLb5",
-    "Glyma.11G121700": None,
-    "Glyma.11G121800": None,
-}
+#: The family is *discovered* by hmmsearch in module 1, not declared, so this
+#: module reads it from module 1's output rather than keeping its own copy. It
+#: used to keep a copy, and the copy disagreed with ``core.GENE_SYMBOLS`` about
+#: whether ``Glyma.10G198900`` carries a symbol — which silently cost 6 of 21
+#: rows on any join between this module's pair table and the sequence module's.
+SEQ_MEMBERS = (
+    Path(__file__).resolve().parent.parent
+    / "results" / "sequence_module" / "globin_family_members.csv"
+)
+
+
+def load_family(members_csv: str | Path = SEQ_MEMBERS) -> dict[str, str | None]:
+    """Family gene IDs -> symbol, read from the sequence module's member table."""
+    members_csv = Path(members_csv)
+    if not members_csv.exists():
+        raise FileNotFoundError(
+            f"{members_csv} not found — run pipeline/run_local.py first; this "
+            f"module takes its family definition from module 1's output."
+        )
+    m = pd.read_csv(members_csv)
+    return {
+        r.gene_id: (r.symbol if isinstance(r.symbol, str) and r.symbol else None)
+        for r in m.itertuples()
+    }
 
 #: Independent nodule cell-type markers, resolved UniProt -> Wm82.a4 by phmmer
 #: against the primary proteome. Leghemoglobin is deliberately excluded: using
@@ -121,9 +138,8 @@ def to_geo_id(gene_id: str) -> str:
     return gene_id.replace(".", "_").upper()
 
 
-def label_of(gene_id: str) -> str:
-    sym = FAMILY.get(gene_id)
-    return f"{gene_id}_{sym}" if sym else gene_id
+#: Labels come from core so this module cannot disagree with the others.
+label_of = core.label_of
 
 
 # --------------------------------------------------------------------------- #
@@ -148,13 +164,41 @@ def pseudobulk_library(datadir: Path, gsm: str, stem: str) -> pd.Series:
     return pd.Series(np.asarray(mat.sum(axis=1)).ravel(), index=feats, name=gsm)
 
 
-def build_pseudobulk(datadir: str | Path) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Return (raw counts, CPM) as genes x libraries."""
+#: Summed per-library counts are cached here. Reading the five matrices costs a
+#: full pass over ~1.2 GB and holds the largest one in memory; the summed table
+#: is ~57k x 5 integers. Anything downstream that only needs expression values
+#: (the pair statistics, the integration module) can work from the cache, so the
+#: matrices are read once per dataset rather than once per question.
+COUNTS_CACHE = (
+    Path(__file__).resolve().parent.parent / "work" / "expression" / "pseudobulk_counts.csv.gz"
+)
+
+
+def build_pseudobulk(
+    datadir: str | Path,
+    cache: str | Path | None = COUNTS_CACHE,
+    force: bool = False,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Return (raw counts, CPM) as genes x libraries, via the summed-count cache."""
     datadir = Path(datadir)
-    cols = {}
-    for gsm, (stem, _) in SAMPLES.items():
-        cols[gsm] = pseudobulk_library(datadir, gsm, stem)
-    counts = pd.DataFrame(cols)
+    cache = Path(cache) if cache is not None else None
+
+    if cache is not None and cache.exists() and not force:
+        counts = pd.read_csv(cache, index_col=0)
+        if list(counts.columns) != list(SAMPLES):
+            raise ValueError(
+                f"{cache} holds libraries {list(counts.columns)}, expected "
+                f"{list(SAMPLES)}; delete it or pass force=True to rebuild."
+            )
+    else:
+        counts = pd.DataFrame(
+            {gsm: pseudobulk_library(datadir, gsm, stem)
+             for gsm, (stem, _) in SAMPLES.items()}
+        )
+        if cache is not None:
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            counts.to_csv(cache)
+
     cpm = counts / counts.sum(axis=0) * 1e6
     return counts, cpm
 
@@ -205,25 +249,107 @@ def gene_profiles(cpm: pd.DataFrame, genes: dict[str, str | None]) -> pd.DataFra
     return pd.DataFrame(rows)
 
 
-def pair_metrics(cpm: pd.DataFrame, genes: dict[str, str | None]) -> pd.DataFrame:
-    """Pairwise profile correlation over the pseudobulk libraries."""
+#: Libraries grouped by tissue, derived from SAMPLES so the two stay in step.
+NODULE_LIBS = [g for g, (_, t) in SAMPLES.items() if t == "nodule"]
+ROOT_LIBS = [g for g, (_, t) in SAMPLES.items() if t == "root"]
+
+#: CPM added to both sides of every ratio before taking a log. Needed because
+#: two of the three root libraries are at exactly 0 CPM for every leghemoglobin,
+#: so an unregularised fold change is 0/0 there.
+#:
+#: It is negligible for the four focal genes, whose nodule CPM is 5,000-19,000,
+#: and it is **not** negligible for the low-expressed family members: GmLb5 sits
+#: at 1.5-2.4 CPM per nodule library and Hb1 below 0.5, so adding 1.0 shifts
+#: those by tens of percent and compresses every fold change involving them
+#: toward zero. Pairs among the focal four are unaffected; pairs involving
+#: GmLb5, Hb1 or Hb2 should be read as regularised, not as measured ratios. If
+#: you need those, lower the pseudocount and state the new value — but note that
+#: at 15-49 M counts per library, 1 CPM is already a fraction of one count, so
+#: the honest reading is that those genes are near the detection floor rather
+#: than that the pseudocount is distorting a real measurement.
+LOG2FC_PSEUDOCOUNT_CPM = 1.0
+
+
+def pair_metrics(
+    cpm: pd.DataFrame,
+    genes: dict[str, str | None],
+    pseudocount: float = LOG2FC_PSEUDOCOUNT_CPM,
+) -> pd.DataFrame:
+    """Pairwise expression statistics over the pseudobulk libraries.
+
+    Emitted per pair, in the canonical ``label_a``/``label_b`` orientation (so
+    every fold change is a-over-b, and flipping a row flips the sign):
+
+    ``spearman_profile``
+        Spearman rho of the log1p-CPM profiles across all five libraries. Read
+        it with care for this family: it is exactly 1.0 for all six pairs among
+        the four focal leghemoglobins, because those four share one zero/nonzero
+        pattern across the three root libraries and so rank identically. It is
+        not 1.0 for every nodule-exclusive pair — GmLb5 is zero in all three root
+        libraries where the focal four have one small nonzero value, which gives
+        its pairs rho = 0.803 on a different tie-rank pattern. Either way five
+        points over two tissues cannot separate co-regulated genes; the column is
+        emitted because it was specified, not because it discriminates.
+    ``log2fc_mean_all`` / ``log2fc_sd_all``
+        Mean and SD of the per-library log2 fold change over all five libraries.
+        The SD here is dominated by the nodule-vs-root step rather than by
+        variability in the ratio.
+    ``log2fc_mean_nodule`` / ``log2fc_sd_nodule``
+        The same over the two nodule libraries only. For a nodule-exclusive
+        family this is the informative version, and it is what the integration
+        module consumes.
+    ``dose_ratio``
+        Smaller nodule-mean CPM over larger, in [0, 1]. A symmetric measure of
+        how comparable the two genes' expression levels are.
+    ``cover_a_by_b`` / ``cover_b_by_a``
+        Directional: the fraction of one gene's nodule dose that the other could
+        supply, capped at 1. Redundancy is not symmetric — a gene at 12% of the
+        pool cannot cover the loss of one at 51%, while the reverse holds
+        comfortably — and these two columns are what carry that asymmetry.
+    ``coexpression_overlap``
+        NA. It is defined per cell (cells expressing both over cells expressing
+        either) and pseudobulk has no cells; see the module docstring.
+    """
     present = [g for g in genes if to_geo_id(g) in cpm.index]
     logcpm = np.log1p(cpm)
+    all_libs = list(SAMPLES)
     rows = []
-    for a, b in combinations(present, 2):
-        va = logcpm.loc[to_geo_id(a), list(SAMPLES)].to_numpy(dtype=float)
-        vb = logcpm.loc[to_geo_id(b), list(SAMPLES)].to_numpy(dtype=float)
-        if np.ptp(va) == 0 or np.ptp(vb) == 0:
-            rho = np.nan
-        else:
-            rho = float(spearmanr(va, vb).statistic)
+    for a, b in core.canonical_pair_order(present):
+        ga, gb = to_geo_id(a), to_geo_id(b)
+        va = logcpm.loc[ga, all_libs].to_numpy(dtype=float)
+        vb = logcpm.loc[gb, all_libs].to_numpy(dtype=float)
+        rho = (np.nan if np.ptp(va) == 0 or np.ptp(vb) == 0
+               else float(spearmanr(va, vb).statistic))
+
+        def l2fc(libs: list[str]) -> np.ndarray:
+            xa = cpm.loc[ga, libs].to_numpy(dtype=float) + pseudocount
+            xb = cpm.loc[gb, libs].to_numpy(dtype=float) + pseudocount
+            return np.log2(xa / xb)
+
+        fc_all, fc_nod = l2fc(all_libs), l2fc(NODULE_LIBS)
+        na = float(cpm.loc[ga, NODULE_LIBS].mean())
+        nb = float(cpm.loc[gb, NODULE_LIBS].mean())
+        hi = max(na, nb)
+
         rows.append({
             "label_a": label_of(a),
             "label_b": label_of(b),
             "gene_a": a,
             "gene_b": b,
             "spearman_profile": rho,
-            "n_profile_points": len(SAMPLES),
+            "n_profile_points": len(all_libs),
+            "log2fc_mean_all": float(fc_all.mean()),
+            "log2fc_sd_all": float(fc_all.std(ddof=1)),
+            "n_libraries_all": len(all_libs),
+            "log2fc_mean_nodule": float(fc_nod.mean()),
+            "log2fc_sd_nodule": float(fc_nod.std(ddof=1)) if len(fc_nod) > 1 else np.nan,
+            "n_libraries_nodule": len(NODULE_LIBS),
+            "log2fc_pseudocount_cpm": pseudocount,
+            "cpm_mean_nodule_a": na,
+            "cpm_mean_nodule_b": nb,
+            "dose_ratio": (min(na, nb) / hi) if hi > 0 else np.nan,
+            "cover_a_by_b": (min(nb / na, 1.0) if na > 0 else np.nan),
+            "cover_b_by_a": (min(na / nb, 1.0) if nb > 0 else np.nan),
             "coexpression_overlap": np.nan,
             "coexpression_overlap_note": "not computable from pseudobulk (no cells)",
         })
@@ -251,9 +377,10 @@ def run(datadir: str | Path, outdir: str | Path, fetch: bool = True) -> dict:
         if still:
             raise FileNotFoundError(f"fetch did not produce: {still}")
 
+    family = load_family()
     counts, cpm = build_pseudobulk(datadir)
-    prof = gene_profiles(cpm, FAMILY)
-    pairs = pair_metrics(cpm, FAMILY)
+    prof = gene_profiles(cpm, family)
+    pairs = pair_metrics(cpm, family)
     marks = gene_profiles(cpm, {g: None for g in MARKERS})
     marks["marker_role"] = [MARKERS[g] for g in marks["gene_id"]]
 
@@ -273,7 +400,26 @@ def run(datadir: str | Path, outdir: str | Path, fetch: bool = True) -> dict:
                       for g, (s, t) in SAMPLES.items()},
         "normalisation": "CPM over summed library counts; no cell calling",
         "metrics_emitted": ["cpm per library", "cpm mean per tissue",
-                            "tau over tissue means", "spearman of log1p-CPM profiles"],
+                            "tau over tissue means", "spearman of log1p-CPM profiles",
+                            "log2 fold change mean and SD, all libraries and nodule only",
+                            "dose_ratio and directional coverage fractions"],
+        "log2fc": {
+            "orientation": "a over b, in the canonical label_a/label_b order",
+            "pseudocount_cpm": LOG2FC_PSEUDOCOUNT_CPM,
+            "pseudocount_reason": (
+                "two of three root libraries are at exactly 0 CPM for every "
+                "leghemoglobin, so an unregularised ratio is 0/0 there"
+            ),
+            "pseudocount_scope_caveat": (
+                "negligible for the four focal genes (nodule CPM 5,000-19,000) "
+                "but not for GmLb5 (1.5-2.4 CPM) or Hb1 (<0.5 CPM): fold changes "
+                "involving those are regularised, not measured ratios"
+            ),
+            "sd_caveat": (
+                "log2fc_sd_all is dominated by the nodule-vs-root step, not by "
+                "variability in the ratio; log2fc_sd_nodule is over 2 libraries"
+            ),
+        },
         "metrics_not_computable": {
             "detection_rate": "per-cell quantity; pseudobulk has no cells",
             "coexpression_overlap": "per-cell quantity; pseudobulk has no cells",

@@ -29,6 +29,7 @@ import subprocess
 import sys
 import time
 import urllib.request
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from itertools import combinations
 from pathlib import Path
@@ -47,12 +48,34 @@ PROTEOME_URL = f"{SOYBASE_BASE}/glyma.Wm82.gnm4.ann1.T8TQ.protein_primary.faa.gz
 GFF3_URL = f"{SOYBASE_BASE}/glyma.Wm82.gnm4.ann1.T8TQ.gene_models_exons.gff3.gz"
 PFAM_HMM_URL = "https://www.ebi.ac.uk/interpro/wwwapi//entry/pfam/PF00042?annotation=hmm"
 
-#: Focal leghemoglobins (Wm82.a4.v1 gene IDs) -> symbol.
+#: Focal leghemoglobins (Wm82.a4.v1 gene IDs) -> symbol. These are the genes the
+#: study is about, and they are unioned into the family regardless of the
+#: PF00042 cutoff (see ``select_family``).
 FOCAL_GENES = {
     "Glyma.10G199100": "Lba",
     "Glyma.10G199000": "Lbc1",
     "Glyma.20G191200": "Lbc2",
     "Glyma.10G198800": "Lbc3",
+}
+
+#: Canonical symbol for every family member that has one, focal or not. The
+#: three non-focal symbols were established by the structure module's UniProt
+#: resolution, not assumed.
+#:
+#: This is the ONLY place a gene symbol is declared. ``label_of`` reads it, every
+#: module's labels derive from ``label_of``, and every pair table therefore
+#: agrees. It used to be declared twice — here and in
+#: ``soy_globin_expression.FAMILY`` — which made ``Glyma.10G198900`` carry a
+#: symbol in one module and not the other, and silently cost 6 of 21 rows on any
+#: join between them. Do not reintroduce a second copy.
+#:
+#: Adding or changing a symbol here changes labels in every committed output, so
+#: all modules have to be re-run together.
+GENE_SYMBOLS = {
+    **FOCAL_GENES,
+    "Glyma.10G198900": "GmLb5",  # UniProt A0A0R0HW51 / LGB5_SOYBN
+    "Glyma.11G121700": "Hb1",    # UniProt I1LJI1 / NSHB1_SOYBN
+    "Glyma.11G121800": "Hb2",    # UniProt Q42785 / NSHB2_SOYBN
 }
 
 ESM2_MODEL = "facebook/esm2_t33_650M_UR50D"
@@ -152,9 +175,31 @@ def gene_of(protein_id: str) -> str:
 
 
 def label_of(gene_id: str) -> str:
-    """Tree/matrix label: gene ID, suffixed with the symbol for focal genes."""
-    sym = FOCAL_GENES.get(gene_id)
+    """Tree/matrix label: gene ID, suffixed with its symbol if it has one."""
+    sym = GENE_SYMBOLS.get(gene_id)
     return f"{gene_id}_{sym}" if sym else gene_id
+
+
+def gene_from_label(label: str) -> str:
+    """Inverse of ``label_of``: 'Glyma.10G199100_Lba' -> 'Glyma.10G199100'."""
+    return label.split("_", 1)[0]
+
+
+def canonical_pair_order(labels: Iterable[str]) -> list[tuple[str, str]]:
+    """Every unordered pair of ``labels``, in one canonical orientation and order.
+
+    Each pair is oriented so ``gene_from_label(a) < gene_from_label(b)``, and the
+    pairs themselves are sorted by that same key.
+
+    Every module that emits a pair table iterates this. That is what makes
+    ``label_a``/``label_b`` a usable join key across modules: two modules that
+    each call ``itertools.combinations`` over their own member ordering will emit
+    the same pair in opposite orientations, and a merge on those columns then
+    drops the reversed rows without raising. Four of 21 pairs were reversed this
+    way before this function existed.
+    """
+    pairs = [tuple(sorted((a, b), key=gene_from_label)) for a, b in combinations(labels, 2)]
+    return sorted(pairs, key=lambda p: (gene_from_label(p[0]), gene_from_label(p[1])))
 
 
 # --------------------------------------------------------------------------- #
@@ -313,7 +358,7 @@ def select_family(
                 "gene_id": gene,
                 "label": label_of(gene),
                 "protein_id": pid,
-                "symbol": focal.get(gene, ""),
+                "symbol": GENE_SYMBOLS.get(gene, ""),
                 "is_focal": gene in focal,
                 "prot_len": len(all_seqs[pid]),
                 "pfam_hit": pid not in {prot_by_gene[g] for g in rescued},
@@ -404,8 +449,10 @@ def pairwise_identity(aln_path: str | Path) -> tuple[pd.DataFrame, pd.DataFrame]
     n = len(labels)
     pid_a = np.full((n, n), 100.0)
     pid_s = np.full((n, n), 100.0)
+    idx = {lab: i for i, lab in enumerate(labels)}
     long_rows = []
-    for i, j in combinations(range(n), 2):
+    for la, lb in canonical_pair_order(labels):
+        i, j = idx[la], idx[lb]
         both = is_res[i] & is_res[j]
         n_both = int(both.sum())
         n_id = int((arr[i][both] == arr[j][both]).sum())
@@ -415,7 +462,7 @@ def pairwise_identity(aln_path: str | Path) -> tuple[pd.DataFrame, pd.DataFrame]
         pid_s[i, j] = pid_s[j, i] = s
         long_rows.append(
             {
-                "label_a": labels[i], "label_b": labels[j],
+                "label_a": la, "label_b": lb,
                 "n_aligned_cols": n_both, "n_identical": n_id,
                 "pid_aligned": a, "pid_shorter": s,
                 "len_a": int(ungapped_len[i]), "len_b": int(ungapped_len[j]),
@@ -545,7 +592,7 @@ def classify_pairs(
 
     by_label = ctx.set_index("label")
     rows = []
-    for a, b in combinations(list(by_label.index), 2):
+    for a, b in canonical_pair_order(list(by_label.index)):
         ga, gb = by_label.loc[a], by_label.loc[b]
         same = ga.seqid == gb.seqid
         if same:
@@ -585,9 +632,9 @@ def classify_pairs(
         pairs["esm2_cosine_distance"] = [
             float(cosine.loc[r.label_a, r.label_b]) for r in pairs.itertuples()
         ]
-    sort_cols = [c for c in ("both_focal", "pid_aligned") if c in pairs.columns]
-    if sort_cols:
-        pairs = pairs.sort_values(sort_cols, ascending=False).reset_index(drop=True)
+    # Row order is left as canonical_pair_order emitted it — the same order every
+    # other module's pair table uses — rather than re-sorted by interest, so the
+    # three tables can be eyeballed side by side as well as merged.
     return pairs, ctx
 
 

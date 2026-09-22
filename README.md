@@ -12,16 +12,25 @@ score.
 | 1 — sequence | **done** | `results/sequence_module/` |
 | 2 — structure | **done** | `results/structure_module/` |
 | 3 — expression | **done, at pseudobulk resolution only** | `results/expression_module/` |
-| 4 — integration / redundancy score | **not started** | — |
+| 4 — integration / redundancy score | **done, at tissue resolution only** | `results/integration_module/` |
 
-Three pair tables now exist on a common key (`label_a`, `label_b`) and are
-ready to join: `paralog_pairs.csv`, `structure_pairs.csv`,
-`expression_pairs.csv`. §5 lists exactly what is still missing, including the
-two expression statistics that were requested and are not yet computed.
+All four modules run end to end. The three pair tables join on a canonical key
+and module 4 reduces them to one score per pair (§4). §5 lists what is still
+missing — one item, and it is the one that matters: no cell-type resolution
+anywhere, so the expression term rests on two tissue means.
 
-`NEXT_RUN.md` is the earlier handoff. Its §2 (structure) and §3 (expression)
-have since been executed and are superseded by §2/§3 below; its §4 (the score
-design) and §6 (open questions for the human) still stand.
+**The headline result.** Within the leghemoglobin clade every molecular measure
+is saturated — sequence identity 91.7–95.2%, ESM2 cosine distance
+0.0006–0.0024, TM-score 0.9816–0.9976 — and the score's discriminating power
+comes almost entirely from expression dose. Redundancy is also **directional**:
+Lba covers each of Lbc1/Lbc2/Lbc3 at ≥ 0.96, while they cover Lba at
+0.43–0.60: Lba supplies 49% of the nodule leghemoglobin pool (nodule-mean CPM;
+51.5% by total counts across the five libraries) and its largest single partner
+supplies only 44% of Lba's own dose.
+The three minor isoforms look individually dispensable; Lba does not.
+
+`NEXT_RUN.md` is the current handoff and was rewritten against this state. Its
+own earlier sections on structure and expression are superseded by §2/§3 below.
 
 Focal genes (Wm82.a4.v1 IDs):
 
@@ -332,72 +341,214 @@ GSE226149 feature list** and comes back `in_matrix=False`.
 
 Spearman correlation of log1p-CPM profiles across the five libraries:
 
-- **all six Lb pairs: ρ = 1.000** over 5 points. This is degenerate, not
-  informative — with two tissues and three near-zero root values, any pair of
-  nodule-exclusive genes gives ρ = 1. Do not feed this into a score as if it
-  carried information.
+- **all six pairs among the four focal Lbs: ρ = 1.000** over 5 points. This is
+  degenerate, not informative: those four share one zero/nonzero pattern across
+  the three root libraries, so they rank identically and ρ is forced to 1. It is
+  not a property of nodule-exclusive genes in general — GmLb5 is zero in all
+  three root libraries where the focal four have one small nonzero value, and
+  its Lb pairs come out at 0.803 on that different tie pattern. Either way, five
+  points over two tissues cannot separate co-regulated genes; do not feed this
+  into a score as if it carried information.
 - Lb vs GmLb5: 0.803 · Lb vs Hb2: 0.718 · Lb vs Hb1: 0.051 · GmLb5 vs Hb1: −0.335
 
 The correlation term is therefore **saturated in the same way sequence
 identity is**, and for a structural reason: five points, two tissues. Getting
 a real expression discriminator requires cell-type or cell-state resolution
-(§5.2), not a different correlation coefficient.
+(§5.1), not a different correlation coefficient.
 
 ---
 
-## 4. The findings that constrain the score design
+## 4. Module 4 — integration and the redundancy score
 
-**(a) Identity does not track adjacency in this family.** Lbc2 sits on a
-different chromosome from every other Lb, yet it is the *most* similar member
-to Lbc3 on all three molecular measures — 95.2% sequence identity, TM-score
-0.9976, and an identical heme pocket — higher than any chr10–chr10 pair. A
-redundancy score that treats "tandem" as a proxy for recency of duplication
-will rank Lbc2 wrongly. The likely explanation is that Gm10/Gm20 are
-homoeologous (*Glycine* WGD ~13 Mya) and the chr20 copy is a whole-genome
-rather than tandem duplicate, but **this repo does not test that** —
-duplication mode here is an adjacency statement, not a synteny analysis.
-Confirm against a synteny block (MCScanX, or the SoyBase synteny viewer)
-before using a `wgd` label.
+Runner: `pipeline/run_integration.py`, logic in `pipeline/soy_globin_integration.py`,
+figure in `pipeline/plot_integration.py`. Wall time 0.4 s — it consumes only what
+modules 1–3 emitted, and touches no network, no GPU and no reference data.
 
-**(b) Every molecular feature computed so far is saturated within the Lb
-clade.** Sequence identity 91.7–95.2%; ESM2 cosine distance 0.0006–0.0024;
-TM-score 0.9816–0.9976. Three independent measures agree that the four Lbs are
-interchangeable at the fold and sequence level. That is a result, not a
-failure — but it means the `M` (molecular interchangeability) term in the score
-has almost no variance to contribute, and its weight should reflect that.
-Pocket identity (91.3–100%) is the only molecular quantity with any spread,
-and it spans 2 substitutions out of 23 positions.
+### 4.1 The score
 
-**(c) The expression term, as currently measured, is saturated too.** This is
-the change from the earlier plan, which assumed expression would carry the
-discriminating signal. At pseudobulk resolution it cannot: ρ = 1.000 for all
-six Lb pairs. What *does* differ is **magnitude** — Lba is 2.3× Lbc1, 2.9× Lbc3
-and 3.8× Lbc2 in nodule CPM — so a dosage-based rather than correlation-based
-expression term is the obvious thing to try next, and is exactly what the
-log2 fold-change statistics in §5.1 would provide.
+```
+R = M**0.40 * E**0.60
+```
+
+**Gated, not additive.** Two genes that are 95% identical but never expressed
+in the same place are not functionally redundant, because neither can buffer
+the other's loss. An additive score would award such a pair a high value on
+sequence alone; a product cannot. This is the one piece of the design in
+`NEXT_RUN.md` §4 that survived contact with the data unchanged.
+
+**`M` — molecular interchangeability**, the equally weighted mean of three
+sub-axes rather than of four flat features:
+
+| sub-axis | from |
+|---|---|
+| sequence | mean of normalised `pid_aligned` and normalised ESM2 similarity |
+| global fold | normalised TM-score |
+| heme pocket | normalised pocket identity over the 23 mapped residues |
+
+The four raw features are collinear across all 21 pairs (Spearman 0.85–0.94),
+so averaging them as equals is a re-weighting of one axis with sequence counted
+twice. Within the six Lb pairs they come apart — identity against pocket
+identity is only ρ = 0.39 — which is precisely where the question lives. Three
+axes gives the pocket a full third instead of a quarter.
+
+**`E` — expression co-availability**, `tissue_overlap × dose_ratio`, both
+already bounded in [0, 1]:
+
+- `tissue_overlap` is the histogram intersection of the two genes' normalised
+  tissue-mean CPM profiles: 1.0 means they place transcript in the same tissues
+  in the same proportions. It replaces the binary co-expression gate of the
+  original design, which with two tissues would be either always open or always
+  shut.
+- `dose_ratio` is the smaller nodule-mean CPM over the larger. Dose is
+  load-bearing, not decorative: on nodule-mean CPM the four Lbs split the pool
+  49 / 21 / 17 / 13 (Lba / Lbc1 / Lbc3 / Lbc2), and the 13% gene cannot cover
+  the loss of the 49% one.
+
+**Two normalisation scopes are emitted, because the choice moves the answer
+more than the weights do.** The molecular axes are min-max scaled over all 21
+pairs, so `M` is on one absolute scale. `R_family` uses `M` and `E` as they
+stand and is comparable across the whole family, with outgroup pairs correctly
+near zero. `R_clade` rescales `M` and `E` — each as a whole, onto [0.05, 1] —
+across the six Lb pairs only, and is a *relative* ranking in which the lowest
+value means "lowest of the six observed", not "not redundant". The floor exists
+because a plain min-max zero in either factor would zero the product and merge
+pairs that differ; it changes no ordering. The gap between the two scopes is
+the saturation result, not something to hide by picking one.
+
+### 4.2 What each component actually contributes
+
+This is the part that decides how much the score is worth, and it has not
+changed since it was written down as a constraint — it has only been quantified.
+
+**The molecular term is saturated within the clade.** Across the six Lb pairs
+the three sub-axes span:
+
+| sub-axis | range over the 6 Lb pairs | spread |
+|---|---|---|
+| sequence | 0.965 – 1.000 | 0.035 |
+| global fold | 0.937 – 1.000 | 0.063 |
+| **heme pocket** | **0.818 – 1.000** | **0.182** |
+
+Sequence and fold contribute almost nothing. The pocket carries three times the
+spread of the other two combined, and that spread is two substitutions out of
+23 positions. `M` itself ranges 0.911–1.000.
+
+**The expression term is where the variance is** — but only after replacing the
+metric. The specified co-expression statistic, Spearman over the five
+libraries, is exactly 1.000 for all six Lb pairs (§3.3) and carries no
+information. `dose_ratio` over the same pairs spans 0.260–0.790, and `E` spans exactly the
+same range, because tissue overlap is 1.000 for all six Lb pairs. Across the 15
+outgroup pairs `E` spans 0.00001–0.093 — the 12 pairs with one focal member
+reach only 0.0041, the three outgroup-only pairs go up to 0.093 — so the lowest
+Lb–Lb value is 2.8× the highest outgroup value and the term separates controls
+on its own.
+
+**Consequence for the weights.** `NEXT_RUN.md` §4 recommended `alpha=0.35,
+beta=0.65` on the reasoning that `M` was saturated and `E` would discriminate.
+The lean toward expression turns out to be right, but for a different reason:
+`E` discriminates only in the dosage formulation, not the correlational one it
+was specified as. α = 0.40 keeps that lean; §4.4 reports what it buys.
+
+### 4.3 Results
+
+![Redundancy score summary](results/integration_module/redundancy_summary.png)
+
+*(a) All 21 pairs in the M–E plane, with iso-R contours of the gated score. The
+six focal pairs sit in a narrow band at the top — M spans 0.911–1.000 — and are
+spread out along E. Pairs involving a non-focal globin collapse onto E ≈ 0.
+(b) Every focal pair's score as α sweeps 0 → 1. The two coloured pairs swap
+first place at α ≈ 0.52, and the spread across all six collapses from 0.53 to
+0.089 as the molecular term takes over.*
+
+The six focal pairs, ranked by the absolute score. "a←b" is the directional
+score: how well **b** could cover for **a**.
+
+| pair | mode | M | E | **R_family** | R_clade | a←b | b←a |
+|---|---|---|---|---|---|---|---|
+| Lbc3–Lbc1 | tandem | 0.948 | 0.790 | **0.850** | 0.727 | 0.979 | 0.850 |
+| Lbc3–Lbc2 | dispersed | 1.000 | 0.746 | **0.839** | 0.952 | 0.839 | 1.000 |
+| Lbc1–Lbc2 | dispersed | 0.957 | 0.589 | **0.715** | 0.598 | 0.715 | 0.982 |
+| Lbc1–Lba | tandem | 0.938 | 0.441 | **0.596** | 0.359 | 0.975 | 0.596 |
+| Lbc3–Lba | tandem | 0.911 | 0.348 | **0.512** | 0.118 | 0.963 | 0.512 |
+| Lba–Lbc2 | dispersed | 0.916 | 0.260 | **0.430** | 0.068 | 0.430 | 0.966 |
+
+Three things to read off it.
+
+**The focal pairs separate cleanly from everything else.** Lb–Lb spans
+0.430–0.850; the 12 pairs with one non-focal member span 0.0006–0.0152, and the
+three outgroup-only pairs 0.027–0.130. The lowest Lb–Lb pair is 3.3× the
+highest non-Lb pair. That separation comes from `E`, not from `M` — outgroup
+pairs are molecularly distinguishable but it is co-expression that puts them on
+the floor.
+
+**The top two are effectively tied, and their order is weight-dependent.**
+Lbc3–Lbc1 leads Lbc3–Lbc2 by 0.011, and §4.4 shows they swap at α ≈ 0.52. Do
+not report a winner. The robust statement is the bottom of the table: all three
+Lba pairs rank last, in dose order.
+
+**Redundancy is directional, and the symmetric score hides it.** Lba's pairs
+are the *most* asymmetric: Lba covers Lbc1, Lbc3 and Lbc2 at 0.975, 0.963 and
+0.966, while they cover Lba at 0.596, 0.512 and 0.430. Read biologically: the
+three minor isoforms are individually dispensable because Lba can absorb their
+share, and Lba is not, because its largest single partner supplies only 44% of
+its dose. This
+**inverts the sanity check in `NEXT_RUN.md`**, which expected Lba's pairs at
+the top of the ranking. Under a dose-aware score a dominant gene's pairs rank
+low symmetrically by construction, so that check was replaced (§4.4).
+
+### 4.4 Weight sensitivity and the three checks
+
+`weight_sensitivity.csv` sweeps α from 0 to 1 in 21 steps. Two results:
+
+- **Rank 1 among the focal pairs changes once**, from Lbc3–Lbc1 (α ≤ 0.50) to
+  Lbc3–Lbc2 (α ≥ 0.55). The chosen α = 0.40 sits on the expression-led side of
+  a crossover about 0.12 away, which is close enough that the ranking of the top
+  two should be treated as unresolved rather than measured.
+- **The spread across the six pairs collapses from 0.53 at α = 0 to 0.089 at
+  α = 1.** That single number is the saturation finding in the score's own
+  units: weighting the molecular term heavily does not shift the ranking much,
+  it flattens it.
+
+The three checks recorded in `manifest.json` under `validation_checks`, with
+their evidence rather than a bare pass:
+
+| check | outcome |
+|---|---|
+| focal pairs separate from outgroups | **passed** — Lb–Lb min 0.430 > other max 0.130 |
+| directional coverage runs with measured abundance | **passed** — 6 of 6 pairs; in every pair the lower-expressed member is the better-covered one |
+| which focal pair tops the symmetric ranking | Lbc3–Lbc1 at 0.850, margin 0.011 over Lbc3–Lbc2 — reported, not asserted |
+
+### 4.5 What the score deliberately leaves out
+
+**Duplication mode is an annotation column, not a score term.** Identity does
+not track adjacency in this family: Lbc2 sits on a different chromosome from
+every other Lb, yet it is the *most* similar member to Lbc3 on all three
+molecular measures — 95.2% identity, TM-score 0.9976, identical heme pocket —
+higher than any chr10–chr10 pair. It is also the only pair with M = 1.000. A
+score that treated "tandem" as a proxy for recency of duplication would rank
+Lbc2 wrongly, so the score does not use it. The likely explanation is that
+Gm10/Gm20 are homoeologous (*Glycine* WGD ~13 Mya) and the chr20 copy is a
+whole-genome rather than tandem duplicate, but **this repo does not test
+that** — duplication mode here is an adjacency statement, not a synteny
+analysis. Confirm against a synteny block (MCScanX, or the SoyBase synteny
+viewer) before using a `wgd` label.
+
+Also excluded, and recorded as such in the manifest: `spearman_profile`
+(degenerate, §3.3) and `coexpression_overlap` (NA upstream — a per-cell
+quantity, and pseudobulk has no cells).
+
+**The score's ceiling is its expression term.** Every molecular input is
+saturated, so with tissue-resolution expression the whole ranking rests on
+dose ratio. That is a defensible quantity, but it is one number per gene pair
+derived from two tissue means. Cell-type resolution (§5.1) is what would turn
+`E` from one measurement into a real distribution, and it remains the highest-
+value piece of work left.
 
 ---
 
 ## 5. What is not done
 
-### 5.1 The two requested expression statistics
-
-Requested, and **not yet implemented**: for each pair, the **log2 fold change
-averaged across tissues/cell types**, and the **standard deviation of that
-log2 fold change**. Pairwise co-expression (Spearman) is done (§3.3); the
-fold-change pair is not. Both are cheap to add to
-`soy_globin_expression.pair_metrics()` from the CPM matrix that module already
-builds — mean and SD of `log2((cpm_i + p) / (cpm_j + p))` over the five
-libraries, with the pseudocount `p` stated in the manifest, since three root
-libraries are at or near zero for every Lb and the ratio is otherwise
-undefined. With only two tissues the SD will mostly report the nodule-vs-root
-split rather than genuine variability — worth emitting anyway, and worth
-labelling.
-
-Source paper for the cell atlas, for the record:
-<https://www.cell.com/cell/fulltext/S0092-8674(24)01273-X>
-
-### 5.2 Cell-type resolution
+### 5.1 Cell-type resolution
 
 No cell calling, clustering or cell-type annotation anywhere in the pipeline,
 so the infected-vs-uninfected nodule-cell contrast that the design leans on
@@ -409,18 +560,19 @@ against the marker panel already in `marker_profiles.csv`, or (ii) obtaining
 the published cell-type labels for the atlas directly from the authors or a
 supplementary table.
 
-### 5.3 Module 4 — integration and the redundancy score
+Concretely, it is what would replace `dose_ratio` — one number per pair from
+two tissue means — with a per-cell distribution, and it is the only way
+`coexpression_overlap` becomes computable at all. Two known obstacles: the
+uninfected-interstitial-cell marker (`Glyma.10G121524`, uricase-2/nodulin-35)
+is absent from the GSE226149 feature list, so that population needs a
+substitute marker; and this is the one remaining step where Modal is genuinely
+justified, because holding the full cell × gene matrix for clustering is
+memory-bound.
 
-Not started. `NEXT_RUN.md` §4 holds the design — a gated, multiplicative score
-`R = M**alpha * E**beta` rather than a weighted sum, on the grounds that two
-genes which never share a cell cannot buffer each other's loss. That reasoning
-still holds. The recommended weighting there (`alpha=0.35, beta=0.65`, leaning
-on expression) was justified by `M` being saturated and `E` being expected to
-discriminate; §4(c) above shows `E` is currently saturated too, so **revisit
-the weights before using them**, and emit the unweighted components either
-way.
+Source paper for the cell atlas, for the record:
+<https://www.cell.com/cell/fulltext/S0092-8674(24)01273-X>
 
-### 5.4 ESM2 on a GPU
+### 5.2 ESM2 on a GPU
 
 The committed cosine matrix is fp32 on CPU (§1.5, §9.1). Re-running the
 embedding stage on Modal would change the fourth decimal and nothing else; it
@@ -433,21 +585,27 @@ is a provenance item, not a scientific one.
 ```
 .
 ├── README.md                        # this file
-├── NEXT_RUN.md                      # earlier handoff; §2/§3 superseded, §4/§6 live
-├── environment.yml                  # conda env for modules 1-2 (see §9.6)
+├── NEXT_RUN.md                      # handoff, rewritten against the current state
+├── environment.yml                  # conda env for modules 1-4
 ├── pipeline/
-│   ├── soy_globin_core.py           # module 1 logic; no Modal import
+│   ├── soy_globin_core.py           # module 1 logic + the canonical family/pair
+│   │                                #   definitions every module reads; no Modal import
 │   ├── soy_globin_structure.py      # module 2 logic; no Modal import
 │   ├── soy_globin_expression.py     # module 3 logic + CLI; no Modal import
+│   ├── soy_globin_integration.py    # module 4 logic; no Modal import, no matplotlib
 │   ├── soy_globin_modal.py          # Modal app wrapping core (module 1 only)
 │   ├── run_local.py                 # module 1, locally
 │   ├── run_structure.py             # module 2
+│   ├── run_integration.py           # module 4
+│   ├── plot_integration.py          # module 4 figure (kept separate from the logic)
 │   └── run_esm2_gpu.py              # module 1 stage 5 alone, as a remote job
 ├── results/sequence_module/         # committed
 ├── results/structure_module/        # committed, incl. 7 AFDB PDBs
 ├── results/expression_module/       # committed
+├── results/integration_module/      # committed
 ├── data/                            # reference + GEO downloads (gitignored)
-└── work/                            # hmmsearch / MAFFT / IQ-TREE / PDB scratch (gitignored)
+└── work/                            # scratch: hmmsearch, MAFFT, IQ-TREE, PDBs,
+                                     #   and the pseudobulk count cache (gitignored)
 ```
 
 None of the three `soy_globin_*.py` modules imports anything from Modal.
@@ -488,17 +646,45 @@ in this repo could be produced at all while the Modal dispatch path was broken
 
 | file | contents |
 |---|---|
-| **`expression_pairs.csv`** | 21 pairs × `spearman_profile`, `n_profile_points`, `coexpression_overlap` (NA + reason) |
+| **`expression_pairs.csv`** | 21 pairs × `spearman_profile`, log2 fold change mean/SD over all 5 libraries and over the 2 nodule libraries, `log2fc_pseudocount_cpm`, `dose_ratio`, directional `cover_a_by_b`/`cover_b_by_a`, `coexpression_overlap` (NA + reason) |
 | `gene_pseudobulk_profiles.csv` | per gene: CPM in each of the 5 libraries, nodule/root means, τ, `detection_rate` (NA + reason) |
 | `marker_profiles.csv` | same columns for 4 nodule marker genes, plus `marker_role` |
 | `dataset_diagnostic.csv` | the GSE270392-vs-GSE226149 comparison behind §3.1, per gene per dataset |
 | `dataset_diagnostic.png` | two-panel figure of the same (generating script not committed — §9.7) |
 | `manifest.json` | series used and series rejected with its reason, per-library totals, normalisation, metrics emitted, metrics not computable and why |
 
-**Join key.** `paralog_pairs.csv`, `structure_pairs.csv` and
-`expression_pairs.csv` all use `label_a`,`label_b` with the same label strings
-and the same orientation, so module 4 is a two-way merge on those columns and
-nothing else. Do not have any module write into another module's directory.
+### `results/integration_module/`
+
+| file | contents |
+|---|---|
+| **`redundancy_scores.csv`** | 21 pairs × every raw component, the normalised sub-axes, `M`/`E`/`R` under both scopes, both directional scores, and the weights used |
+| `weight_sensitivity.csv` | the α sweep: 21 rows × top pair overall, top focal pair, its R, and the spread across the six focal pairs |
+| `redundancy_summary.png` | the two-panel figure (§4); generated by `pipeline/plot_integration.py` |
+| `manifest.json` | score form, weights, sub-axis definitions and their rationale, both normalisation scopes, metrics deliberately unused and why, the three validation checks with their evidence |
+
+**Join key — one canonical definition, enforced.** All four pair tables use
+`label_a`,`label_b` over the same 21 pairs, in one orientation
+(`gene_a < gene_b`) and one row order, and they merge directly:
+`merge(on=["label_a","label_b"])` returns 21 of 21.
+
+That is now true because it is defined once. `core.GENE_SYMBOLS` is the only
+place a symbol is declared and `core.label_of` the only place a label is built;
+`core.canonical_pair_order` is the only place pairs are enumerated, and all
+three emitters iterate it. `soy_globin_expression` reads the family from module
+1's `globin_family_members.csv` rather than keeping a copy.
+
+It was not true before, and the failure was silent rather than loud. The family
+was declared twice — in `core.FOCAL_GENES` and in a local `FAMILY` dict — and
+the two copies disagreed about whether `Glyma.10G198900` carries a symbol, so 6
+of 21 rows failed to join on the label string; separately, each module ran its
+own `itertools.combinations` over its own member ordering, which reversed 4 more
+pairs. A naive merge returned 11 rows and raised nothing.
+`soy_globin_integration.load_pairs()` now **raises** on a non-canonical
+orientation or any unmatched row rather than returning a short table, so the
+same class of defect cannot pass quietly again.
+
+Two conventions worth keeping: no module writes into another module's
+directory, and anything family-specific lives in `core`.
 
 ---
 
@@ -528,7 +714,6 @@ existing cosine matrix instead of recomputing, `--threads N`.
 ### Module 2 — structure
 
 ```bash
-pip install tmtools            # not in environment.yml — see §9.6
 python pipeline/run_structure.py
 ```
 
@@ -549,6 +734,25 @@ Downloads the five GSE226149 matrices into `data/expression/` on first run
 (fail rather than download). Each library is loaded whole with
 `scipy.io.mmread` and summed over barcodes one at a time, so peak memory is
 the largest single matrix — it fits in 16 GB but is not streamed.
+
+The summed per-library counts are cached to
+`work/expression/pseudobulk_counts.csv.gz` (0.6 MB) on first run and reused
+afterwards, so the 1.2 GB pass happens once rather than once per question.
+Delete that file to force a rebuild.
+
+### Module 4 — integration
+
+```bash
+python pipeline/run_integration.py      # 0.4 s
+python pipeline/plot_integration.py     # the figure, separately
+```
+
+Reads the three pair tables plus `gene_pseudobulk_profiles.csv`, writes
+`results/integration_module/`. No network. `--alpha <x>` re-scores with a
+different weight on the molecular term (β is set to 1 − α); the committed
+outputs use α = 0.40. The plot script prints a geometric overlap check on its
+own text, so a layout regression shows up in the run log rather than in the
+figure.
 
 ### Module 1 on Modal
 
@@ -583,11 +787,12 @@ route; the Rust Xet client ignores HTTP proxies, the LFS one doesn't.
 | module 2 structure | **Modal (ESMFold GPU)** | **local, 12.8 s** — AFDB had every model, no prediction needed |
 | module 3 expression | Modal if memory-bound | **local** — libraries are summed one at a time, so peak memory is one matrix, not the atlas |
 | pair classification | either | trivial |
+| module 4 integration | not planned | **local, 0.4 s** — 21 rows in, 21 rows out |
 
 For a family this size **nothing here actually requires remote dispatch**. That
 changes if the family grows (ESM2 on hundreds of sequences), if structures must
 be predicted rather than downloaded, or if module 4 needs the full cell × gene
-atlas in memory for cell-type clustering (§5.2) — that last one is the
+atlas in memory for cell-type clustering (§5.1) — that last one is the
 realistic Modal candidate remaining, and the constraint will be memory, not
 FLOPs.
 
@@ -595,17 +800,21 @@ FLOPs.
 
 ## 8. Time spent vs. the 8-hour budget
 
-| block | budgeted (`NEXT_RUN.md` §5) | actual |
+| block | budgeted | actual |
 |---|---|---|
 | module 1 — sequence | — (already done) | done in an earlier session |
 | module 2 — structure | 1.5 h | done; runtime 12.8 s, no GPU |
 | module 3 — expression | 2.0 h | done at pseudobulk resolution; the dataset diagnostic took most of it |
-| module 4 — integration + figure | 1.0 h | **not started** |
+| module 4 — integration + figure | 1.0 h | **done**; runtime 0.4 s + the figure |
+| join fix at source + log2FC statistics | not budgeted | folded into the module 4 block |
 
-The structure module came in far under budget because AFDB removed the need to
-predict anything. The expression module spent its budget establishing that the
-specified dataset was unusable — which is why it stopped at pseudobulk rather
-than reaching cell types.
+All four module runtimes together are under a minute. The budget was spent on
+deciding what to compute, not on computing it: the structure module came in far
+under budget because AFDB removed the need to predict anything, and the
+expression module spent its budget establishing that the specified dataset was
+unusable — which is why it stopped at pseudobulk rather than reaching cell
+types. The one item that would consume a real budget, cell-type resolution
+(§5.1), is the one still outstanding.
 
 ---
 
@@ -626,38 +835,67 @@ than reaching cell types.
    accepted unchanged by v3.
 3. **Low internal support in the Lb clade** — see §1.3. Real, not fixable
    with more bootstraps.
-4. **Duplication mode is adjacency, not synteny** — see §4(a).
+4. **Duplication mode is adjacency, not synteny** — see §4.5. It is carried
+   as an annotation column and is deliberately not a term in the score.
 5. **PF00042 excludes truncated hemoglobins** — see §1.2.
-6. **`environment.yml` is incomplete for modules 2 and 3.** `tmtools`
-   (module 2) is not listed and has to be pip-installed; the figure in
-   `results/expression_module/` needs matplotlib, which is also not listed.
-   Add both when you next touch the env file.
+6. **`environment.yml` now carries `matplotlib-base` and a pip section for
+   `tmtools`** (not on conda-forge). Both were previously missing, so module 2
+   and both figures failed on a fresh env. If you rebuild the env, note that
+   the pip section makes the solve two-stage.
 7. **`dataset_diagnostic.png` and `.csv` were produced ad hoc — the script is
-   not committed.** They are the only outputs in the repo without a runner,
-   and the published protein shares in panel b came from the literature
-   without an in-repo citation. Either fold that figure into
-   `soy_globin_expression.py` with the source recorded in the manifest, or
-   treat the panel as illustrative and do not cite it.
+   not committed.** They are now the only outputs in the repo without a
+   runner (module 4's figure has `plot_integration.py`), and the published
+   protein shares in panel b came from the literature without an in-repo
+   citation. Either fold that figure into `soy_globin_expression.py` with the
+   source recorded in the manifest, or treat the panel as illustrative and do
+   not cite it.
 8. **GSE226149 pseudobulk is protoplast scRNA-seq summed over barcodes**, so it
    inherits protoplasting bias and includes whatever ambient RNA the libraries
    carry. It is a bulk-like quantity, not a validated bulk RNA-seq measurement.
 9. **τ over two tissues is a nodule-vs-root contrast**, not a
    tissue-specificity index — see §3.2.
-10. **Lb-pair Spearman ρ = 1.000 is degenerate**, not evidence of
-    co-regulation — see §3.3.
+10. **ρ = 1.000 for the six focal-Lb pairs is degenerate**, not evidence of
+    co-regulation, and it is a property of those four genes' shared
+    zero/nonzero root pattern rather than of nodule-exclusive genes in general
+    (GmLb5's pairs give 0.803) — see §3.3. The column is emitted and
+    deliberately unused by the score.
 11. **GmLb5 (`Glyma.10G198900`) is the weakest row in the structure table** —
     lowest pLDDT (81.6) and the only AFDB model whose sequence differs in
     length from the a4 primary transcript (+17 aa) — see §2.1.
 12. `pid_aligned` is sensitive to how the MSA gaps partial sequences. Check
     `n_aligned_cols` in `pairwise_identity_pairs.csv` before trusting any
     individual value.
-13. The four focal IDs are hardcoded in `soy_globin_core.FOCAL_GENES` and
-    repeated in `soy_globin_expression.FAMILY`. Pointing the pipeline at a
-    different family means editing both plus the HMM accession — nothing else
-    is family-specific.
+13. The family is now declared in exactly one place —
+    `soy_globin_core.FOCAL_GENES` for the focal four and
+    `core.GENE_SYMBOLS` for all seven symbols. Pointing the pipeline at a
+    different family means editing those plus the HMM accession; nothing else
+    is family-specific, and no module keeps a second copy. It used to, and
+    §6 records what that cost.
 14. `.DS_Store` files are tracked in git. Add them to `.gitignore` and
     `git rm --cached` them.
-15. **GSE226149's `features.tsv.gz` uses `GLYMA_10G199100`, not
+15. **The pair-table join defect is fixed at source** — one symbol map, one
+    pair-ordering function, `gene_a`/`gene_b` on all four tables, and
+    `load_pairs()` raises rather than returning a short table. See §6. All
+    three modules were re-run after the fix; sequence and structure values are
+    bit-identical to the pre-fix outputs, only labels and row order changed.
+16. **GSE226149's `features.tsv.gz` uses `GLYMA_10G199100`, not
     `Glyma.10G199100`.** `soy_globin_expression.to_geo_id()` does the
     conversion; any new gene lookup against that atlas has to go through it or
     it will silently match nothing.
+
+17. **The committed ESM2 matrix was reused across the relabelling, not
+    recomputed.** `run_local.py --reuse-esm2` now remaps a reused cosine matrix
+    by gene ID rather than matching on the label string, because an embedding is
+    a per-gene quantity and the label is presentation. The three affected tips
+    were renamed, not rescored; the manifest's `esm2.relabelled` field records
+    exactly which. The values remain the fp32 CPU ones from the original run
+    (§1.5, §9.1).
+18. **α = 0.40 sits 0.12 from a rank flip.** The top two focal pairs are
+    separated by 0.011 and swap order at α ≈ 0.52 (§4.4). Treat the identity of
+    the single most redundant pair as unresolved; the bottom of the ranking —
+    all three Lba pairs — is robust across the whole sweep.
+19. **`R_clade` is floored at 0.05, `R_family` is not.** The clade-relative
+    score rescales M and E onto [0.05, 1] so that a min-max zero in either
+    factor cannot zero the product. Ordering is unaffected, but do not read
+    `R_clade` as an absolute quantity or compare it across a different member
+    set — recompute it if the clade changes.

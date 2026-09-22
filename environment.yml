@@ -1,4 +1,4 @@
-# Local environment for the sequence module (everything except ESM2).
+# Local environment for modules 1-4 (everything except ESM2).
 #   conda env create -f environment.yml && conda activate soyglobin
 #
 # ESM2 lives in a separate env on purpose: torch pulls a large dependency set
@@ -21,3 +21,10 @@ dependencies:
   - numpy
   - scipy
   - requests
+  # module 4's figure, and the expression module's dataset diagnostic
+  - matplotlib-base
+  # module 2 only: TM-align via tmtools. Not on conda-forge, so it comes from
+  # pip inside the conda env — which is why this file carries a pip section.
+  - pip
+  - pip:
+      - tmtools

@@ -35,8 +35,17 @@
     "cpm per library",
     "cpm mean per tissue",
     "tau over tissue means",
-    "spearman of log1p-CPM profiles"
+    "spearman of log1p-CPM profiles",
+    "log2 fold change mean and SD, all libraries and nodule only",
+    "dose_ratio and directional coverage fractions"
   ],
+  "log2fc": {
+    "orientation": "a over b, in the canonical label_a/label_b order",
+    "pseudocount_cpm": 1.0,
+    "pseudocount_reason": "two of three root libraries are at exactly 0 CPM for every leghemoglobin, so an unregularised ratio is 0/0 there",
+    "pseudocount_scope_caveat": "negligible for the four focal genes (nodule CPM 5,000-19,000) but not for GmLb5 (1.5-2.4 CPM) or Hb1 (<0.5 CPM): fold changes involving those are regularised, not measured ratios",
+    "sd_caveat": "log2fc_sd_all is dominated by the nodule-vs-root step, not by variability in the ratio; log2fc_sd_nodule is over 2 libraries"
+  },
   "metrics_not_computable": {
     "detection_rate": "per-cell quantity; pseudobulk has no cells",
     "coexpression_overlap": "per-cell quantity; pseudobulk has no cells"
