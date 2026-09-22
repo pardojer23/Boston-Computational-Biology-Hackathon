@@ -1,0 +1,274 @@
+schema_version: 1
+family:
+  name: leghemoglobin
+  slug: globin
+  species:
+    name: Glycine max
+    common: soybean
+    ncbi_taxon: 3847
+  source: pfam
+  identifiers:
+    id_prefix_strip: ^glyma\.Wm82\.gnm4\.ann1\.
+    gff_seqid_strip: ^glyma\.Wm82\.gnm4\.
+    chromosome_regex: Gm(\d+)$
+    geo_id_transform: upper_underscore
+  pfam:
+    accession: PF00042
+  symbols:
+    Glyma.10G199100: Lba
+    Glyma.10G199000: Lbc1
+    Glyma.20G191200: Lbc2
+    Glyma.10G198800: Lbc3
+    Glyma.10G198900: GmLb5
+    Glyma.11G121700: Hb1
+    Glyma.11G121800: Hb2
+reference:
+  assembly_annotation: Wm82.gnm4.ann1.T8TQ
+  assembly_alias: Phytozome Wm82.a4.v1
+  base_url: https://data.soybase.org/Glycine/max/annotations/Wm82.gnm4.ann1.T8TQ
+  files:
+    proteome:
+      url: https://data.soybase.org/Glycine/max/annotations/Wm82.gnm4.ann1.T8TQ/glyma.Wm82.gnm4.ann1.T8TQ.protein_primary.faa.gz
+      local: data/reference/proteins_primary.faa.gz
+      sha256: 603603800a4b1966868214159e892c44655c69ffc690f676732ed1c204c8447a
+      n_sequences_expected: 52872
+    gff3:
+      url: https://data.soybase.org/Glycine/max/annotations/Wm82.gnm4.ann1.T8TQ/glyma.Wm82.gnm4.ann1.T8TQ.gene_models_exons.gff3.gz
+      local: data/reference/gene_models_exons.gff3.gz
+      sha256: d18e497767e4eaf5020993e2eb18b24839d7fafe832f6960a9b9a93b977f0d93
+sequence:
+  hmm:
+    accession: PF00042
+    name: Globin
+    url: https://www.ebi.ac.uk/interpro/wwwapi//entry/pfam/PF00042?annotation=hmm
+    local: data/reference/PF00042.hmm
+    sha256: 7b300a21130b823627b09dd11fc5a76a7ca49515504c33493d140bcdeda93db3
+    release_expected: PF00042.29
+    model_length_expected: 117
+    gathering_threshold_expected: 22
+    excludes_note: class-3 truncated haemoglobins match PF01152, not PF00042
+  select:
+    threshold: cut_ga
+    evalue: null
+    rescue_focal_below_cutoff: true
+  cutoff_check:
+    enabled: true
+    relaxed_evalue: 10
+    min_bitscore_gap: 25.0
+    policy: fail
+  alignment:
+    program: mafft
+    mode: linsi
+    args:
+    - --localpair
+    - --maxiterate
+    - '1000'
+    n_columns_expected: 162
+  phylogeny:
+    program: iqtree
+    model: MFP
+    ufboot: 1000
+    alrt: 1000
+    seed: 20240601
+    best_model_expected: Q.PLANT+I
+    feeds_score: false
+  identity:
+    source: alignment
+    primary_metric: pid_aligned
+    also_emit:
+    - pid_shorter
+  embedding:
+    model: facebook/esm2_t33_650M_UR50D
+    layer: last
+    pooling: residue_mean
+    batch_size: 8
+    embedding_dim_expected: 1280
+    dtype: float32
+    device: cpu
+  duplication:
+    tandem_max_intervening_genes: 10
+    proximal_max_bp: 1000000
+    is_score_term: false
+structure:
+  source: alphafold_db
+  uniprot:
+    search_api: https://rest.uniprot.org/uniprotkb/search
+    entry_api: https://rest.uniprot.org/uniprotkb/{acc}.json
+    pinned: null
+    require_reviewed: false
+    fail_on_missing: true
+  afdb:
+    api: https://alphafold.ebi.ac.uk/api/prediction/{acc}
+    cache_dir: work_pfam/structure/afdb
+    model_version_expected: 6
+    model_version_policy: warn
+  model_vs_reference:
+    min_identity: 99.0
+    max_len_delta: 20
+    policy: warn
+    known_exceptions:
+      Glyma.10G198900: UniProt sequence is 168 aa vs 151 aa for the a4 primary transcript;
+        100% identical over the aligned columns, and the lowest pLDDT in the set (81.6)
+  pocket:
+    template_pdb: 1BIN
+    template_api: https://files.rcsb.org/download/{pdb_id}.pdb
+    ligand: HEM
+    cutoff_a: 5.0
+    reference_member: Lba
+    n_residues_expected: 23
+    cache_dir: work_pfam/structure/templates
+    fail_on_unmappable: true
+  pocket_crosscheck:
+    enabled: true
+    min_sites_inside: 4
+    policy: warn
+  superposition:
+    program: tmtools
+    tm_normalisation: shorter_chain
+    also_emit:
+    - tm_norm_a
+    - tm_norm_b
+    - rmsd
+expression:
+  resolution: pseudobulk
+  series:
+    accession: GSE226149
+    note: mature nodule + root, protoplast scRNA-seq, used as pseudobulk
+    ftp_base: https://ftp.ncbi.nlm.nih.gov/geo/samples/{dir}/{gsm}/suppl
+    parts:
+    - matrix.mtx.gz
+    - features.tsv.gz
+    - barcodes.tsv.gz
+    datadir: data/expression
+  rejected_series:
+    accession: GSE270392
+    reason: snRNA-seq of early nodule; Lba ranks 45,386/52,594 with 668 counts against
+      a median gene total of 2,496; 9-33 co-detected nuclei per Lb pair; the intended
+      negative control Hb2 is the most abundant globin present
+    still_valid_for: qualitative confirmation that Lb transcript localises to infected
+      cells
+  libraries:
+  - gsm: GSM7065810
+    stem: Nodule_sample1
+    tissue: nodule
+    total_counts_expected: 47501352
+  - gsm: GSM7065811
+    stem: Nodule_sample2
+    tissue: nodule
+    total_counts_expected: 48565100
+  - gsm: GSM7065807
+    stem: Root_sample1
+    tissue: root
+    total_counts_expected: 14665336
+  - gsm: GSM7065808
+    stem: Root_sample2
+    tissue: root
+    total_counts_expected: 20727649
+  - gsm: GSM7065809
+    stem: Root_sample3
+    tissue: root
+    total_counts_expected: 31599717
+  tissues:
+    focal: nodule
+    contrast: root
+  pseudobulk:
+    cache: work_pfam/expression/pseudobulk_counts.csv.gz
+    normalisation: cpm
+    method: sum_over_barcodes
+  markers:
+    Glyma.08G120100:
+      role: "NOD26 \u2014 symbiosome membrane, infected cells"
+      uniprot: P08995
+    Glyma.10G121524:
+      role: "Uricase-2 / nodulin-35 \u2014 uninfected interstitial cells"
+      uniprot: P04670
+      known_absent_from_series: GSE226149
+    Glyma.20G072400:
+      role: Uricase-2 isozyme 2
+      uniprot: P04104
+    Glyma.13G114000:
+      role: Sucrose synthase / nodulin-100
+      uniprot: P13708
+  metrics:
+    log2fc_pseudocount_cpm: 1.0
+    log2fc_orientation: a over b, in the canonical label_a/label_b order
+    degenerate_columns:
+      spearman_profile: 1.000 for all six focal pairs over 5 points; carries no information
+        at this resolution
+    not_computable:
+      detection_rate: per-cell quantity; pseudobulk has no cells
+      coexpression_overlap: per-cell quantity; pseudobulk has no cells
+    tau_caveat: two tissue types only; tau collapses to a focal-vs-contrast contrast
+  dataset_diagnostic:
+    enabled: true
+    published_protein_shares: null
+    published_protein_source: null
+score:
+  form: R = M**alpha * E**beta
+  alpha_m: 0.4
+  m_axes:
+    seq: 0.3333333333333333
+    fold: 0.3333333333333333
+    pocket: 0.3333333333333333
+  e_terms:
+    tissue_overlap: histogram intersection of normalised tissue-mean CPM profiles
+    dose: dose_ratio
+  normalisation:
+    molecular_scope: family
+    scopes_emitted:
+    - family
+    - clade
+    clade_floor: 0.05
+  weight_sweep:
+    alpha_min: 0.0
+    alpha_max: 1.0
+    steps: 21
+  metrics_not_used:
+    spearman_profile: 1.000 for all six focal pairs; carries no information
+    coexpression_overlap: "NA upstream \u2014 per-cell quantity, pseudobulk has no\
+      \ cells"
+    duplication_mode: reported as an interpretive column, deliberately not a score
+      term
+checks:
+  reference_checksums:
+    policy: fail
+  hmm_release:
+    policy: warn
+  family_cutoff_gap:
+    policy: fail
+  alignment_columns:
+    policy: warn
+  afdb_model_version:
+    policy: warn
+  model_vs_reference_sequence:
+    policy: warn
+  pocket_residue_count:
+    policy: fail
+  pocket_uniprot_crosscheck:
+    policy: warn
+  library_total_counts:
+    policy: warn
+  pair_table_contracts:
+    policy: fail
+  pair_join_completeness:
+    policy: fail
+  focal_outgroup_separation:
+    policy: fail
+  directional_coverage_abundance:
+    policy: fail
+  symmetric_ranking_top:
+    policy: report
+paths:
+  data: data
+  work: work_pfam
+  results: results_pfam
+  sequence_out: results_pfam/sequence_module
+  structure_out: results_pfam/structure_module
+  expression_out: results_pfam/expression_module
+  integration_out: results_pfam/integration_module
+  run_manifest: results_pfam/run_manifest.json
+resources:
+  threads_default: 4
+  hmmsearch_threads: 8
+  mafft_threads: 4
+  iqtree_threads: 4

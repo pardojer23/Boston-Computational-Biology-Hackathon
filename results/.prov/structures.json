@@ -1,6 +1,7 @@
 {
   "checks": {
     "model_vs_reference_sequence": {
+      "applicable": true,
       "differing": [
         {
           "label": "Glyma.10G198900_GmLb5",
@@ -16,9 +17,9 @@
       "unexplained": []
     }
   },
-  "config_digest": "eaa6afbc423e",
+  "config_digest": "4ae10918b70b",
   "config_source": "config/config.yaml",
-  "generated_utc": "2026-09-22T19:03:01Z",
+  "generated_utc": "2026-09-22T20:25:20Z",
   "inputs_sha256": {
     "results/sequence_module/globins.faa": "285bf1079d363a0c45822d2beed9a4a428a76340266ac0a8025bfc77af40f6ca",
     "results/structure_module/uniprot_accessions.csv": "c9a77a1e72a45da0ac20e1ee7ea220b1385c54e1d63174d66a70b165f39bb6f6",
@@ -31,7 +32,7 @@
     "work/structure/afdb/AF-Q42785-F1.meta.json": "845deb2198a75598582142f52e0b3a7bfc09dece6f649a1e126755ab54e35cbe"
   },
   "outputs_sha256": {
-    "results/structure_module/structures.csv": "ad33cb5306639cdea6842a02441277aa9f67bfb0c7c72b63e32700aff48b72bc"
+    "results/structure_module/structures.csv": "a9ad48278c6c3032b17c958649e8658edd264839089dff0eff85dec0d4efb7a8"
   },
   "params": {
     "max_len_delta": 20,

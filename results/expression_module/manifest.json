@@ -1,5 +1,5 @@
 {
-  "config_digest": "eaa6afbc423e",
+  "config_digest": "4ae10918b70b",
   "resolution": "pseudobulk",
   "source_series": "GSE226149",
   "source_note": "mature nodule + root, protoplast scRNA-seq, used as pseudobulk",
@@ -82,6 +82,7 @@
         "library": "GSM7065809",
         "expected": 31599717,
         "observed": 31599717,
+        "applicable": true,
         "passed": true
       }
     }

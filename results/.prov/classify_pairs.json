@@ -1,11 +1,11 @@
 {
-  "config_digest": "eaa6afbc423e",
+  "config_digest": "4ae10918b70b",
   "config_source": "config/config.yaml",
   "counts": {
     "dispersed": 14,
     "tandem": 7
   },
-  "generated_utc": "2026-09-22T19:02:53Z",
+  "generated_utc": "2026-09-22T20:30:23Z",
   "inputs_sha256": {
     "data/reference/gene_models_exons.gff3.gz": "d18e497767e4eaf5020993e2eb18b24839d7fafe832f6960a9b9a93b977f0d93",
     "results/sequence_module/esm2_cosine_distance_matrix.csv": "1557a89447e984c008c81063a2988156706867d5b7833981f9c5e726e4215709",

@@ -314,6 +314,60 @@ def weight_sensitivity(
     return pd.DataFrame(rows)
 
 
+def _family_composition(out: pd.DataFrame) -> dict:
+    """Record whether this family had an outgroup, and what that actually cost.
+
+    When every member is focal there is no outgroup, and one consequence is
+    certain: ``focal_outgroup_separation`` has nothing to compare and does not
+    run. A second consequence is tempting to assume and is **false**, so it is
+    measured here rather than asserted.
+
+    The intuition is that with no outgroup the clade scope covers the same
+    pairs as the family scope, so ``R_clade`` must collapse onto ``R_family``.
+    The pair *set* does coincide — but ``scope='clade'`` still rescales M and E
+    *separately, each as a whole*, onto ``[clade_floor, 1]``. Rescaling the two
+    factors independently changes their relative contribution to the product,
+    so the two columns differ in value and can differ in **ordering**: on the
+    committed family run without a focal subset, Spearman between them is 0.64
+    and the rank order is not preserved. ``R_clade`` therefore stays
+    informative even with no outgroup, and describing it as redundant would
+    have told a reader to ignore a column that still says something.
+
+    What is lost with no outgroup is the *interpretation*, not the content:
+    ``R_clade`` can no longer be read as "relative within the ingroup, against
+    a family that is larger than it".
+    """
+    n_focal = int((out.pair_class == CLASS_FOCAL_FOCAL).sum())
+    n_other = int(len(out) - n_focal)
+    rec = {
+        "n_focal_pairs": n_focal,
+        "n_outgroup_pairs": n_other,
+        "has_outgroup": bool(n_other > 0),
+        "pair_classes_present": sorted(out.pair_class.unique().tolist()),
+    }
+    if {"R_clade", "R_family"} <= set(out.columns) and len(out) > 2:
+        fam = out.R_family.to_numpy(float)
+        cla = out.R_clade.to_numpy(float)
+        rec["clade_vs_family"] = {
+            "scope_covers_same_pairs": bool(n_other == 0),
+            "max_abs_difference": float(np.nanmax(np.abs(cla - fam))),
+            "spearman": float(pd.Series(cla).corr(pd.Series(fam), method="spearman")),
+            "same_ordering": bool(
+                (pd.Series(cla).rank().to_numpy()
+                 == pd.Series(fam).rank().to_numpy()).all()),
+        }
+    rec["note"] = (
+        "no outgroup: every discovered member is focal, so "
+        "focal_outgroup_separation did not run. R_clade still applies its own "
+        "rescaling and is NOT a duplicate of R_family — see clade_vs_family — "
+        "but it can no longer be read as 'relative within the ingroup'."
+        if n_other == 0 else
+        "focal and outgroup pairs both present; both normalisation scopes "
+        "carry their intended meaning."
+    )
+    return rec
+
+
 def validation_checks(scored: pd.DataFrame, profiles: pd.DataFrame, cfg) -> dict:
     """Checks on the family score, each recorded with its evidence.
 
@@ -335,13 +389,29 @@ def validation_checks(scored: pd.DataFrame, profiles: pd.DataFrame, cfg) -> dict
     sink: dict = {}
 
     # 1. Do the focal pairs separate from everything else?
+    #
+    #    When the family was defined with no focal subset, every pair is
+    #    focal-focal and `other` is EMPTY. There is then nothing to separate
+    #    from, and the check is not applicable — which is emphatically not the
+    #    same as passing. Reporting passed=True on an empty comparison would
+    #    turn this policy=fail gate into a silent green light: the run would go
+    #    green on a check that never ran. The configured policy is left alone,
+    #    so the same config re-run on a family that does have an outgroup
+    #    re-arms the gate with no edit.
+    have_outgroup = len(other) > 0
     config.evaluate_check(
         cfg, "focal_outgroup_separation",
-        bool(foc.R_family.min() > other.R_family.max()),
+        bool(have_outgroup and foc.R_family.min() > other.R_family.max()),
         {"focal_min_R": float(foc.R_family.min()),
-         "other_max_R": float(other.R_family.max()),
+         "other_max_R": float(other.R_family.max()) if have_outgroup else None,
          "n_focal_pairs": int(len(foc)), "n_other_pairs": int(len(other))},
         sink=sink,
+        applicable=have_outgroup,
+        reason=None if have_outgroup else (
+            "no outgroup pairs: the family was defined without a focal subset, "
+            "so every discovered member is focal and there is nothing to "
+            "separate from. Declare family.<source>.focal to re-arm this check."
+        ),
     )
 
     # 2. Does directional coverage run in the direction of measured abundance?
@@ -491,6 +561,7 @@ def run(
             "R_a_covered_by_b / R_b_covered_by_a use the partner's suppliable "
             "dose fraction in place of the symmetric dose ratio"
         ),
+        "family_composition": _family_composition(out),
         "metrics_not_used": cfg.get("score.metrics_not_used") or {},
         "validation_checks": checks,
         "weight_sensitivity": {

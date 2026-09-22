@@ -418,16 +418,36 @@ def select_family(
     hmm: str | Path,
     workdir: str | Path,
     cfg: "Config",
+    seed: pd.DataFrame | None = None,
     cpu: int = 4,
 ) -> tuple[dict[str, str], pd.DataFrame]:
-    """HMM search over the proteome, unioned with the configured focal genes.
+    """HMM search over the proteome, unioned with the resolved family seed.
 
     Returns (labelled sequences, membership table). Family membership is
-    *discovered*, not declared — the focal genes are only guaranteed to be
+    *discovered*, not declared — the seed genes are only guaranteed to be
     present, and everything else in the table is whatever the HMM found.
+
+    ``seed`` is the resolver's output (``pipeline/family.py``). It carries the
+    genes that must be in the family and which of them were declared focal;
+    when no gene is declared focal, every discovered member resolves to focal
+    and the family has no outgroup. Passing ``seed=None`` falls back to the
+    config's own declaration, which is what the ``gene_ids`` mode reduces to.
     """
-    focal = cfg.focal_genes
-    symbols = cfg.gene_symbols
+    import family as fammod
+
+    if seed is None:
+        seed = fammod.resolve(cfg)
+    seed_focal = set(seed.loc[seed.is_focal_declared.astype(bool), "gene_id"]) \
+        if len(seed) else set()
+    # Symbols come from the seed first, then the config's outgroup labels.
+    symbols = {**cfg.gene_symbols,
+               **{r.gene_id: r.symbol for r in seed.itertuples() if r.symbol}}
+    # Only rows flagged must_include are force-included. Outgroup symbols are
+    # carried in the seed as LABELS and are not flagged, so naming a gene can
+    # never by itself put it in the family — for `pfam` the search alone
+    # decides membership.
+    must_include = (set(seed.loc[seed.must_include.astype(bool), "gene_id"])
+                    if len(seed) else set())
     id_prefix = _compiled(cfg["family.identifiers.id_prefix_strip"])
     acc = cfg["sequence.hmm.accession"]
 
@@ -457,20 +477,21 @@ def select_family(
     hit_pids = set(hits.protein_id)
     rescued = []
     if cfg.get("sequence.select.rescue_focal_below_cutoff", True):
-        for gene in focal:
+        for gene in sorted(must_include):
             pid = prot_by_gene.get(gene)
             if pid is None:
-                raise KeyError(f"focal gene {gene} not found in proteome {proteome}")
+                raise KeyError(f"seed gene {gene} not found in proteome {proteome}")
             if pid not in hit_pids:
                 hit_pids.add(pid)
                 rescued.append(gene)
         if rescued:
-            print(f"[select] focal genes added below the {acc} cutoff: {rescued}")
+            print(f"[select] seed genes added below the {acc} cutoff: {rescued}")
     else:
-        absent = [g for g in focal if prot_by_gene.get(g) not in hit_pids]
+        absent = [g for g in sorted(must_include)
+                  if prot_by_gene.get(g) not in hit_pids]
         if absent:
             raise KeyError(
-                f"focal genes below the {acc} cutoff and rescue is disabled: {absent}"
+                f"seed genes below the {acc} cutoff and rescue is disabled: {absent}"
             )
 
     rows = []
@@ -484,7 +505,10 @@ def select_family(
                 "label": label_of(gene, symbols),
                 "protein_id": pid,
                 "symbol": symbols.get(gene, ""),
-                "is_focal": gene in focal,
+                # Placeholder; resolved against the seed below, because
+                # "focal" depends on whether anything was declared focal at
+                # all, which is a property of the seed and not of this row.
+                "is_focal": gene in seed_focal,
                 "prot_len": len(all_seqs[pid]),
                 "pfam_hit": pid not in {prot_by_gene[g] for g in rescued},
                 "evalue_full": float(h.evalue_full.iloc[0]) if len(h) else np.nan,
@@ -495,7 +519,15 @@ def select_family(
                 "ali_to": int(d.ali_to.iloc[0]) if len(d) else -1,
             }
         )
-    members = pd.DataFrame(rows).sort_values(
+    members = pd.DataFrame(rows)
+    # No declared focal subset -> the whole discovered set is the family. This
+    # is the `focal`-optional path: legal, and materially different from the
+    # declared case, since it leaves no outgroup for the separation check.
+    members["is_focal"] = fammod.resolve_focal(seed, members)
+    if not seed_focal:
+        print(f"[select] no focal subset declared; all {len(members)} discovered "
+              f"members are focal, so this family has no outgroup")
+    members = members.sort_values(
         ["is_focal", "score_full"], ascending=[False, False]
     ).reset_index(drop=True)
 

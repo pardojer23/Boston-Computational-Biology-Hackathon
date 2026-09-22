@@ -12,15 +12,16 @@
   "checks": {
     "afdb_model_version": {
       "acc": "P02236",
+      "applicable": true,
       "expected": 6,
       "passed": true,
       "policy": "warn",
       "version": 6
     }
   },
-  "config_digest": "eaa6afbc423e",
+  "config_digest": "4ae10918b70b",
   "config_source": "config/config.yaml",
-  "generated_utc": "2026-09-22T19:02:59Z",
+  "generated_utc": "2026-09-22T20:29:35Z",
   "inputs_sha256": {},
   "outputs_sha256": {
     "work/structure/afdb/AF-P02236-F1.meta.json": "e5e9ef9f47bc9a1f2ecab057707e2b50b38a78605b4eb468045050e0a4b4bf8b",

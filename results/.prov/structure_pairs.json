@@ -1,11 +1,11 @@
 {
-  "config_digest": "eaa6afbc423e",
+  "config_digest": "4ae10918b70b",
   "config_source": "config/config.yaml",
-  "generated_utc": "2026-09-22T19:03:02Z",
+  "generated_utc": "2026-09-22T20:30:22Z",
   "inputs_sha256": {
     "results/sequence_module/globins.aln.faa": "894668d41dbf9e7af733311a6713de72cf6305355027a14eec53f78abd0e4dab",
-    "results/structure_module/structures.csv": "ad33cb5306639cdea6842a02441277aa9f67bfb0c7c72b63e32700aff48b72bc",
-    "work/structure/pocket_columns.json": "b0fbda61a84bc5878e4eba91cee4e9e171254e2f597340dfa127651c43c7a82d"
+    "results/structure_module/structures.csv": "a9ad48278c6c3032b17c958649e8658edd264839089dff0eff85dec0d4efb7a8",
+    "work/structure/pocket_columns.json": "cb098704437881a22d03a583586476a157163f12a22cb4a7e548d0667b9a9f59"
   },
   "outputs_sha256": {
     "results/structure_module/structure_pairs.csv": "2ee29d8c397768ff0eef4bf8d9ece19f3e93d93e20a4f4db9197c47cb8631b14"

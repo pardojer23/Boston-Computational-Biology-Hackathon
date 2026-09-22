@@ -1,12 +1,12 @@
 {
   "chain": "A",
-  "config_digest": "eaa6afbc423e",
+  "config_digest": "4ae10918b70b",
   "config_source": "config/config.yaml",
-  "generated_utc": "2026-09-22T19:16:41Z",
+  "generated_utc": "2026-09-22T20:28:59Z",
   "inputs_sha256": {},
   "n_pocket_residues": 23,
   "outputs_sha256": {
-    "work/structure/templates/pocket_1BIN_HEM_5.0.json": "e8aa6bc04ed316686277dbfa6e89c8b6dd0c2df093f1ce21a3d1c6e6212e2e54"
+    "work/structure/templates/pocket_1BIN_HEM_5.0.json": "c13a1eda4c33ece7bb3ad646e0ac7456c53dc3ab9f15e7852775765bafa85e24"
   },
   "params": {
     "cfg_section": "251d38d45f11",

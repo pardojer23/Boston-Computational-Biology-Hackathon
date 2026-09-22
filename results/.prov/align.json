@@ -1,15 +1,16 @@
 {
   "checks": {
     "alignment_columns": {
+      "applicable": true,
       "expected": 162,
       "n_columns": 162,
       "passed": true,
       "policy": "warn"
     }
   },
-  "config_digest": "eaa6afbc423e",
+  "config_digest": "4ae10918b70b",
   "config_source": "config/config.yaml",
-  "generated_utc": "2026-09-22T19:16:40Z",
+  "generated_utc": "2026-09-22T20:30:14Z",
   "inputs_sha256": {
     "results/sequence_module/globins.faa": "285bf1079d363a0c45822d2beed9a4a428a76340266ac0a8025bfc77af40f6ca"
   },

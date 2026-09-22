@@ -721,7 +721,7 @@ directory, and anything family-specific lives in `core`.
 snakemake -s workflow/Snakefile --cores 8 --use-conda
 ```
 
-That is the whole pipeline: 24 file-producing rules over five stages, both
+That is the whole pipeline: 25 file-producing rules over five stages, both
 conda environments resolved per-rule. The run order is no longer a thing to remember — it is a
 consequence of the declared file dependencies, and
 
@@ -755,6 +755,32 @@ Two things worth knowing before the first run:
 ```bash
 snakemake -s workflow/Snakefile --cores 8 --use-conda --configfile config/other_family.yaml
 ```
+
+The family can be declared three ways, and all three resolve to the same seed
+table so nothing downstream knows which was used:
+
+```yaml
+family:
+  source: gene_ids            # gene_ids | pfam | orthodb
+  gene_ids: {Glyma.10G199100: Lba, Glyma.10G199000: Lbc1, ...}
+
+# or
+family:
+  source: pfam
+  pfam: {accession: PF00042}  # `focal` optional
+
+# or — soybean only; species_taxon must match family.species.ncbi_taxon
+family:
+  source: orthodb
+  orthodb: {group: 1234at3193, species_taxon: 3847}
+```
+
+For `pfam` and `orthodb`, **`focal` is optional**. Omitting it means the whole
+discovered set is the family with no outgroup, which is a different analysis
+rather than a degenerate one: `focal_outgroup_separation` then records itself
+not-applicable and applies no verdict (*not* the same as passing), and
+`R_clade` keeps its own rescaling rather than collapsing onto `R_family`.
+`docs/PIPELINE.md` has the measured numbers.
 
 `config/config.yaml` holds every family-specific value; nothing outside its
 `family:` block names a gene. The config is a hashed DAG input, so editing the

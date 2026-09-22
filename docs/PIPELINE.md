@@ -1,9 +1,9 @@
 # The pipeline
 
-28 rule statements in `workflow/Snakefile`: 24 that produce files, plus the
+29 rule statements in `workflow/Snakefile`: 25 that produce files, plus the
 `all` target and three stage aliases (`sequence`, `structure`, `expression`)
-that exist only to be named on the command line. The figure below draws the 24
-plus `all`; the stage aliases are omitted because they compute nothing.
+that exist only to be named on the command line. The figure below predates the
+`resolve_family` rule; regenerate it with the `--rulegraph` command below.
 
 This document is the rule reference; the scientific reasoning is in `README.md`
 and the pre-refactor audit that motivated this structure is in
@@ -81,6 +81,111 @@ all move with it. What does *not* generalise without code work is a different
 reference genome's ID conventions beyond the two regexes, and a different
 expression atlas format — both out of scope by decision.
 
+## Declaring the family
+
+The family can be declared three ways. `family.source` picks the mode,
+`validate()` enforces that exactly one block is populated, and all three
+resolve — in `pipeline/family.py`, via the `resolve_family` rule — to one seed
+table (`results/sequence_module/family_seed.csv`). Nothing downstream of that
+rule knows which mode was used.
+
+| mode | declaration | `focal` |
+| --- | --- | --- |
+| `gene_ids` | an explicit gene set; the list **is** the family | implicit — all of them |
+| `pfam` | an HMM search defines membership | **optional** |
+| `orthodb` | an OrthoDB group, restricted to this species | **optional** |
+
+```yaml
+family:
+  source: pfam
+  pfam:
+    accession: PF00042
+    focal: [Glyma.10G199100, Glyma.10G199000]   # optional
+```
+
+Symbols are independent of the focal set: `family.symbols` names any member in
+any mode, and a member with no symbol is labelled by bare gene ID.
+
+**Naming a gene does not make it a member.** The seed carries `must_include`
+separately from `symbol`, so a label cannot pull a gene into the family — two
+runs with the same Pfam accession give the same membership regardless of which
+symbols happen to be configured. Only `gene_ids` and `orthodb` force genes in.
+
+### Omitting `focal`
+
+Legal for `pfam` and `orthodb`, and it means *the whole discovered set is the
+family, with no outgroup*. That is a different analysis, not a degenerate one,
+and it changes two things.
+
+**`focal_outgroup_separation` does not run.** There are no outgroup pairs to
+separate from, so the check records itself `applicable: false` with a reason
+and applies **no verdict** — whatever its configured policy. This is not the
+same as passing, and the distinction is the reason `evaluate_check` grew an
+`applicable` argument: reporting `passed: true` on an empty comparison would
+turn a `policy: fail` gate into a silent green light, and the run would go
+green on a check that never ran. The configured policy is left at `fail`, so
+the same config on a family that *does* have an outgroup re-arms the gate with
+no edit.
+
+**`R_clade` does *not* become a duplicate of `R_family`.** This is the
+inference that looks obvious and is wrong. The clade scope then covers the same
+pairs, but it still rescales M and E *separately, each as a whole*, onto
+`[clade_floor, 1]` — and rescaling the two factors independently changes their
+relative contribution to the product. Measured on the committed family with no
+focal subset: max absolute difference **0.146**, Spearman **0.635**, and the
+rank order is **not** preserved. `R_clade` stays informative; what it loses is
+the *reading* "relative within the ingroup, against a larger family". The
+integration manifest measures this per run under
+`family_composition.clade_vs_family` rather than asserting it.
+
+Running `pfam` with `focal` omitted on PF00042 is therefore **not** a
+reproduction of the committed leghemoglobin result: it gives 7 focal members
+and 21 focal-focal pairs with no separation check. The committed result is
+`source: gene_ids`.
+
+### Scope: soybean only
+
+`orthodb` resolves a group *within this assembly*. `species_taxon` must equal
+`family.species.ncbi_taxon` and a mismatch fails at config load. The reference
+proteome, the GFF, the identifier regexes and the entire expression atlas are
+specific to one assembly, so resolving an orthogroup in another species would
+need all of them replaced — the mode fails loudly rather than half-working.
+`data.orthodb.org` is not on the sandbox network allowlist and needs granting.
+
+### One work directory per family
+
+`paths.work` holds intermediates keyed by nothing but their filename
+(`work/phylo/globins.aln.faa`, `work/hmmer/<acc>.tblout`). Two configs that
+point `paths.results` at different trees but leave `paths.work` at the default
+therefore overwrite each other's intermediates, and each run silently
+invalidates the other's downstream rules — the tables that get rebuilt are
+correct, and the ones that do not are stale, with nothing in either output tree
+saying so.
+
+`resolve_family` stamps `work/.family_stamp.json` with the family digest and
+fails if it changes:
+
+```
+work/ was last written by a different family definition.
+  previous : gene_ids digest b25ed173154d -> results
+  now      : pfam     digest c00b863ae355 -> results_pfam
+```
+
+So a second family needs its own `paths.work` (and the three cache paths under
+it), not just its own `paths.results`.
+
+### Re-running is a no-op, with one caveat
+
+Once settled, re-invoking either config reports "Nothing to be done" and exits
+0; verified over three interleaved rounds across two configs.
+
+The caveat is `embed`. Without `--use-conda` it fails on the missing torch
+import, and Snakemake deletes the outputs of a failed job — so the ESM2 matrix
+disappears and the next run is not a no-op. Either run with `--use-conda` so
+the rule gets its declared environment, or supply the matrix and `--touch` it.
+Verification runs in this repo took the second route; it is declared wherever
+those numbers are reported.
+
 ## Contracts
 
 `pipeline/contracts.py` declares, for each table crossing a module boundary: the
@@ -125,6 +230,10 @@ read against a current spec — which is what the verification diff below uses.
 Every check is evaluated with its evidence recorded; `checks:` in the config
 decides whether a failure stops the run. Previously all of these were printed
 and the runner exited 0 regardless.
+
+A check can also record itself **not applicable**, which applies no verdict
+regardless of policy — see "Omitting `focal`" above. `applicable` is recorded
+on every check row, so the manifest shows which gates were live for a run.
 
 | check | policy | what it asserts |
 | --- | --- | --- |

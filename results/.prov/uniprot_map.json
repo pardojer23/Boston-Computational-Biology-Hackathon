@@ -8,9 +8,9 @@
     "Glyma.11G121800": "Q42785",
     "Glyma.20G191200": "P02236"
   },
-  "config_digest": "eaa6afbc423e",
+  "config_digest": "4ae10918b70b",
   "config_source": "config/config.yaml",
-  "generated_utc": "2026-09-22T19:16:46Z",
+  "generated_utc": "2026-09-22T20:25:13Z",
   "inputs_sha256": {
     "results/sequence_module/globin_family_members.csv": "5c14b993da3a74d443faa4affc967e6f6cdb6de9892c2429cbefece9663c1419"
   },

@@ -35,7 +35,18 @@ REPO = Path(workflow.basedir).parent
 sys.path.insert(0, str(REPO / "pipeline"))
 import config as cfgmod
 
-CFG = cfgmod.load(REPO / "config" / "config.yaml")
+# The config path must follow --configfile. Snakemake's `config` dict does,
+# but the step CLI takes a PATH, and hardcoding it here meant
+# `--configfile other.yaml` changed the rule params while every step still
+# read config/config.yaml — a clean-looking run computed against a different
+# family definition than the one requested, which is the exact failure this
+# pipeline is built to make impossible.
+# `overwrite_configfiles` holds what --configfile supplied; `configfiles` also
+# includes this file's own `configfile:` default, and its order is not the
+# precedence order, so take the CLI list first and fall back to the default.
+_CLI_CONF = [str(p) for p in (getattr(workflow, "overwrite_configfiles", None) or [])]
+CONF = _CLI_CONF[-1] if _CLI_CONF else "config/config.yaml"
+CFG = cfgmod.load(CONF)
 
 # Paths from the config, so nothing here hardcodes a layout.
 DATA = config["paths"]["data"]
@@ -48,7 +59,6 @@ INT = config["paths"]["integration_out"]
 PROV = f"{RES}/.prov"
 
 STEPS = "pipeline/steps.py"
-CONF = "config/config.yaml"
 ENV_MAIN = "envs/soyglobin.yaml"
 ENV_ESM2 = "envs/esm2.yaml"
 
@@ -84,6 +94,7 @@ rule all:
 
 rule sequence:
     input:
+        f"{SEQ}/family_seed.csv",
         f"{SEQ}/paralog_pairs.csv",
         f"{SEQ}/globins.annotated.nwk",
         f"{SEQ}/cutoff_check.json",
@@ -131,24 +142,39 @@ rule fetch_hmm:
 # Stage 1 — sequence
 # --------------------------------------------------------------------------- #
 
+rule resolve_family:
+    # The family can be declared three ways — an explicit gene set, a Pfam
+    # domain, or an OrthoDB group — and all three reduce here to one seed
+    # table, so nothing downstream knows which was used. Depends on the
+    # proteome because a declared gene that is not in it cannot be a member,
+    # and that should fail here rather than four steps later.
+    input:
+        proteome=rules.fetch_proteome.output,
+    output: f"{SEQ}/family_seed.csv"
+    params: cfg=CFG.section_digest("family")
+    conda: ENV_MAIN
+    shell: sh("resolve-family --proteome {input.proteome} --out {output}")
+
+
 rule select_family:
     input:
         proteome=rules.fetch_proteome.output,
         hmm=rules.fetch_hmm.output,
+        seed=rules.resolve_family.output,
     output:
         faa=f"{SEQ}/globins.faa",
         members=f"{SEQ}/globin_family_members.csv",
         tblout=f"{WORK}/hmmer/{ACC}.tblout",
     params:
         workdir=f"{WORK}/hmmer",
-        cfg=CFG.section_digest("sequence.select", "sequence.hmm",
-                               "family.focal_genes"),
+        cfg=CFG.section_digest("sequence.select", "sequence.hmm", "family"),
     threads: config["resources"]["hmmsearch_threads"]
     conda: ENV_MAIN
     shell:
         sh("select-family --proteome {input.proteome} --hmm {input.hmm} "
-           "--workdir {params.workdir} --out-faa {output.faa} "
-           "--out-members {output.members} --threads {threads}")
+           "--workdir {params.workdir} --seed {input.seed} "
+           "--out-faa {output.faa} --out-members {output.members} "
+           "--threads {threads}")
 
 
 rule cutoff_check:

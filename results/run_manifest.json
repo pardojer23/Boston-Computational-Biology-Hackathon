@@ -1,5 +1,5 @@
 {
-  "config_digest": "eaa6afbc423e",
+  "config_digest": "4ae10918b70b",
   "config_source": "config/config.yaml",
   "environment": {
     "Bio": "1.88",
@@ -10,34 +10,49 @@
     "scipy": "1.17.1"
   },
   "family": {
-    "focal_digest": "232d86a072da",
-    "focal_genes": {
+    "declared_focal": {
       "Glyma.10G198800": "Lbc3",
       "Glyma.10G199000": "Lbc1",
       "Glyma.10G199100": "Lba",
       "Glyma.20G191200": "Lbc2"
     },
+    "family_digest": "b25ed173154d",
+    "focal_declared": true,
     "name": "leghemoglobin",
+    "resolved": {
+      "focal_genes": [
+        "Glyma.10G198800",
+        "Glyma.10G199000",
+        "Glyma.10G199100",
+        "Glyma.20G191200"
+      ],
+      "has_outgroup": true,
+      "n_focal": 4,
+      "n_members": 7,
+      "n_outgroup": 3
+    },
+    "source": "gene_ids",
     "species": "Glycine max"
   },
-  "generated_utc": "2026-09-22T19:17:30Z",
-  "git_commit": "a2dfe7e88ceded246d4cae4e195a6afb0fe91322",
-  "n_steps_recorded": 21,
-  "run_id": "20260922T191730Z",
+  "generated_utc": "2026-09-22T20:30:26Z",
+  "git_commit": "297a80f8609bcb352dd9f3c8368652fa08a54f5f",
+  "n_steps_recorded": 22,
+  "run_id": "20260922T203026Z",
   "stale_inputs": [],
   "steps": {
     "align": {
       "checks": {
         "alignment_columns": {
+          "applicable": true,
           "expected": 162,
           "n_columns": 162,
           "passed": true,
           "policy": "warn"
         }
       },
-      "config_digest": "eaa6afbc423e",
+      "config_digest": "4ae10918b70b",
       "config_source": "config/config.yaml",
-      "generated_utc": "2026-09-22T19:16:40Z",
+      "generated_utc": "2026-09-22T20:30:14Z",
       "inputs_sha256": {
         "results/sequence_module/globins.faa": "285bf1079d363a0c45822d2beed9a4a428a76340266ac0a8025bfc77af40f6ca"
       },
@@ -61,15 +76,15 @@
       }
     },
     "annotate_tree": {
-      "config_digest": "eaa6afbc423e",
+      "config_digest": "4ae10918b70b",
       "config_source": "config/config.yaml",
-      "generated_utc": "2026-09-22T19:02:54Z",
+      "generated_utc": "2026-09-22T20:30:24Z",
       "inputs_sha256": {
         "results/sequence_module/gene_context.csv": "064a1688f30f7fb225208124452f02074fe517356366f038a24ba3bb7ce7147f",
-        "results/sequence_module/globins.treefile": "e512d393dd6d7bdd6fab07d9e051d1acad427d0ff75fcc7607b4cbb6d3c6d46e"
+        "results/sequence_module/globins.treefile": "5edef28a943c548089af368b945e11bce5e91346ded9409770ea2a0a7a06424f"
       },
       "outputs_sha256": {
-        "results/sequence_module/globins.annotated.nwk": "bc2dfc9de80aca1eb1c0d22fa324e1c8b8cfdaff0eb8735731eb2cbc9a352fc3"
+        "results/sequence_module/globins.annotated.nwk": "c3082b4ecd5970a4115b9a64ffb35427ac8d2670d4ca037f38042c4886981719"
       },
       "params": {},
       "python": "3.11.16",
@@ -77,13 +92,13 @@
       "tools": {}
     },
     "classify_pairs": {
-      "config_digest": "eaa6afbc423e",
+      "config_digest": "4ae10918b70b",
       "config_source": "config/config.yaml",
       "counts": {
         "dispersed": 14,
         "tandem": 7
       },
-      "generated_utc": "2026-09-22T19:02:53Z",
+      "generated_utc": "2026-09-22T20:30:23Z",
       "inputs_sha256": {
         "data/reference/gene_models_exons.gff3.gz": "d18e497767e4eaf5020993e2eb18b24839d7fafe832f6960a9b9a93b977f0d93",
         "results/sequence_module/esm2_cosine_distance_matrix.csv": "1557a89447e984c008c81063a2988156706867d5b7833981f9c5e726e4215709",
@@ -138,9 +153,9 @@
       "tools": {}
     },
     "expression": {
-      "config_digest": "eaa6afbc423e",
+      "config_digest": "4ae10918b70b",
       "config_source": "config/config.yaml",
-      "generated_utc": "2026-09-22T19:17:06Z",
+      "generated_utc": "2026-09-22T20:06:18Z",
       "inputs_sha256": {
         "results/sequence_module/globin_family_members.csv": "5c14b993da3a74d443faa4affc967e6f6cdb6de9892c2429cbefece9663c1419",
         "work/expression/pseudobulk_counts.csv.gz": "ddf06c544210b46e7e7a2a375fbfc843cae6ae08ae5e9b403ab0d6fe504296f0"
@@ -152,7 +167,7 @@
       "outputs_sha256": {
         "results/expression_module/expression_pairs.csv": "87a5110f770882b66e46c68927ba7312e1bdc78fb7fb7347c0abeb9150fe2398",
         "results/expression_module/gene_pseudobulk_profiles.csv": "c806b45e90cf57a56b61e2ac1343148216c325932baae06984c366959506f0a6",
-        "results/expression_module/manifest.json": "2796107055cb3a5f8ba59605174debb86c7ecd1e3d72ed6e3c084abe5f2248c3",
+        "results/expression_module/manifest.json": "dbf3effeafd9022d1f8610bdac7ae2f4dcebc4e54c5d50e60cbc29e0e4aa7091",
         "results/expression_module/marker_profiles.csv": "5feb86c25bfaf45da9aee497ab073962d3ea08abe2c4304241e4d9bb4787e31b"
       },
       "params": {
@@ -177,15 +192,16 @@
       "checks": {
         "afdb_model_version": {
           "acc": "A0A0R0HW51",
+          "applicable": true,
           "expected": 6,
           "passed": true,
           "policy": "warn",
           "version": 6
         }
       },
-      "config_digest": "eaa6afbc423e",
+      "config_digest": "4ae10918b70b",
       "config_source": "config/config.yaml",
-      "generated_utc": "2026-09-22T19:02:59Z",
+      "generated_utc": "2026-09-22T20:29:33Z",
       "inputs_sha256": {},
       "outputs_sha256": {
         "work/structure/afdb/AF-A0A0R0HW51-F1.meta.json": "a273112b7b7e1d7ee1da3a74eaea36e7df62eb2319a83ba87b3a462d16a6030b",
@@ -213,15 +229,16 @@
       "checks": {
         "afdb_model_version": {
           "acc": "I1LJI1",
+          "applicable": true,
           "expected": 6,
           "passed": true,
           "policy": "warn",
           "version": 6
         }
       },
-      "config_digest": "eaa6afbc423e",
+      "config_digest": "4ae10918b70b",
       "config_source": "config/config.yaml",
-      "generated_utc": "2026-09-22T19:02:57Z",
+      "generated_utc": "2026-09-22T20:29:35Z",
       "inputs_sha256": {},
       "outputs_sha256": {
         "work/structure/afdb/AF-I1LJI1-F1.meta.json": "907c23ba5c9a5b74e52c6f838345d34473da10e4445af126992fcf21d9c630e4",
@@ -249,15 +266,16 @@
       "checks": {
         "afdb_model_version": {
           "acc": "P02235",
+          "applicable": true,
           "expected": 6,
           "passed": true,
           "policy": "warn",
           "version": 6
         }
       },
-      "config_digest": "eaa6afbc423e",
+      "config_digest": "4ae10918b70b",
       "config_source": "config/config.yaml",
-      "generated_utc": "2026-09-22T19:02:57Z",
+      "generated_utc": "2026-09-22T20:29:34Z",
       "inputs_sha256": {},
       "outputs_sha256": {
         "work/structure/afdb/AF-P02235-F1.meta.json": "430684c6db2673a97ff21b41e62ffad9ef198d8a63c8d95577be41b3e41e33f9",
@@ -285,15 +303,16 @@
       "checks": {
         "afdb_model_version": {
           "acc": "P02236",
+          "applicable": true,
           "expected": 6,
           "passed": true,
           "policy": "warn",
           "version": 6
         }
       },
-      "config_digest": "eaa6afbc423e",
+      "config_digest": "4ae10918b70b",
       "config_source": "config/config.yaml",
-      "generated_utc": "2026-09-22T19:02:59Z",
+      "generated_utc": "2026-09-22T20:29:35Z",
       "inputs_sha256": {},
       "outputs_sha256": {
         "work/structure/afdb/AF-P02236-F1.meta.json": "e5e9ef9f47bc9a1f2ecab057707e2b50b38a78605b4eb468045050e0a4b4bf8b",
@@ -321,15 +340,16 @@
       "checks": {
         "afdb_model_version": {
           "acc": "P02237",
+          "applicable": true,
           "expected": 6,
           "passed": true,
           "policy": "warn",
           "version": 6
         }
       },
-      "config_digest": "eaa6afbc423e",
+      "config_digest": "4ae10918b70b",
       "config_source": "config/config.yaml",
-      "generated_utc": "2026-09-22T19:03:00Z",
+      "generated_utc": "2026-09-22T20:29:34Z",
       "inputs_sha256": {},
       "outputs_sha256": {
         "work/structure/afdb/AF-P02237-F1.meta.json": "3329d89909f29177ca997f8f8566b1fd6bf46ccb6f398888c4cfa0028f9b02c0",
@@ -357,15 +377,16 @@
       "checks": {
         "afdb_model_version": {
           "acc": "P02238",
+          "applicable": true,
           "expected": 6,
           "passed": true,
           "policy": "warn",
           "version": 6
         }
       },
-      "config_digest": "eaa6afbc423e",
+      "config_digest": "4ae10918b70b",
       "config_source": "config/config.yaml",
-      "generated_utc": "2026-09-22T19:02:57Z",
+      "generated_utc": "2026-09-22T20:29:36Z",
       "inputs_sha256": {},
       "outputs_sha256": {
         "work/structure/afdb/AF-P02238-F1.meta.json": "6f86d0d1f39ea5b8f8187f20e8bd9c7b197b29fbc3503ed594061dfc905fa74b",
@@ -393,15 +414,16 @@
       "checks": {
         "afdb_model_version": {
           "acc": "Q42785",
+          "applicable": true,
           "expected": 6,
           "passed": true,
           "policy": "warn",
           "version": 6
         }
       },
-      "config_digest": "eaa6afbc423e",
+      "config_digest": "4ae10918b70b",
       "config_source": "config/config.yaml",
-      "generated_utc": "2026-09-22T19:03:00Z",
+      "generated_utc": "2026-09-22T20:29:33Z",
       "inputs_sha256": {},
       "outputs_sha256": {
         "work/structure/afdb/AF-Q42785-F1.meta.json": "845deb2198a75598582142f52e0b3a7bfc09dece6f649a1e126755ab54e35cbe",
@@ -416,9 +438,9 @@
       "tools": {}
     },
     "identity": {
-      "config_digest": "eaa6afbc423e",
+      "config_digest": "4ae10918b70b",
       "config_source": "config/config.yaml",
-      "generated_utc": "2026-09-22T19:16:41Z",
+      "generated_utc": "2026-09-22T20:30:20Z",
       "inputs_sha256": {
         "work/phylo/globins.aln.faa": "894668d41dbf9e7af733311a6713de72cf6305355027a14eec53f78abd0e4dab"
       },
@@ -433,9 +455,9 @@
       "tools": {}
     },
     "integration": {
-      "config_digest": "eaa6afbc423e",
+      "config_digest": "4ae10918b70b",
       "config_source": "config/config.yaml",
-      "generated_utc": "2026-09-22T19:17:29Z",
+      "generated_utc": "2026-09-22T20:30:25Z",
       "inputs_sha256": {
         "results/expression_module/expression_pairs.csv": "87a5110f770882b66e46c68927ba7312e1bdc78fb7fb7347c0abeb9150fe2398",
         "results/expression_module/gene_pseudobulk_profiles.csv": "c806b45e90cf57a56b61e2ac1343148216c325932baae06984c366959506f0a6",
@@ -443,7 +465,7 @@
         "results/structure_module/structure_pairs.csv": "2ee29d8c397768ff0eef4bf8d9ece19f3e93d93e20a4f4db9197c47cb8631b14"
       },
       "outputs_sha256": {
-        "results/integration_module/manifest.json": "2d21f3e07f9f74e6e08cf41eafd9d789fdc9b434ac0684e52730141b3fd12367",
+        "results/integration_module/manifest.json": "402bd71b23046817d5d90c55b2566bbcb4e00b14473535a717e7b66364ca07b2",
         "results/integration_module/redundancy_scores.csv": "a7704dd75cc1175c4168bfb821e786002c6dde709c3c3b4541199dd40537ef93",
         "results/integration_module/weight_sensitivity.csv": "c2b1172701d5bf5655067c0365b96674bc992d4a4a935f157ff9cf7677c2172a"
       },
@@ -465,11 +487,13 @@
         "directional_coverage_abundance": {
           "abundance_column": "cpm_mean_nodule",
           "agreeing": 6,
+          "applicable": true,
           "pairs_tested": 6,
           "passed": true,
           "policy": "fail"
         },
         "focal_outgroup_separation": {
+          "applicable": true,
           "focal_min_R": 0.4302018791499305,
           "n_focal_pairs": 6,
           "n_other_pairs": 15,
@@ -478,6 +502,7 @@
           "policy": "fail"
         },
         "pair_join_completeness": {
+          "applicable": true,
           "expected": 21,
           "n_members": 7,
           "n_pairs": 21,
@@ -485,6 +510,7 @@
           "policy": "fail"
         },
         "symmetric_ranking_top": {
+          "applicable": true,
           "margin": 0.01084513214722016,
           "policy": "report",
           "runner_up": "Glyma.10G198800_Lbc3|Glyma.20G191200_Lbc2",
@@ -498,6 +524,7 @@
       "checks": {
         "pocket_uniprot_crosscheck": {
           "accession": "P02238",
+          "applicable": true,
           "n_inside_pocket": 4,
           "n_sites": 5,
           "passed": true,
@@ -536,19 +563,19 @@
           ]
         }
       },
-      "config_digest": "eaa6afbc423e",
+      "config_digest": "4ae10918b70b",
       "config_source": "config/config.yaml",
-      "generated_utc": "2026-09-22T19:02:57Z",
+      "generated_utc": "2026-09-22T20:30:20Z",
       "inputs_sha256": {
         "results/sequence_module/globins.aln.faa": "894668d41dbf9e7af733311a6713de72cf6305355027a14eec53f78abd0e4dab",
         "results/sequence_module/globins.faa": "285bf1079d363a0c45822d2beed9a4a428a76340266ac0a8025bfc77af40f6ca",
         "results/structure_module/uniprot_accessions.csv": "c9a77a1e72a45da0ac20e1ee7ea220b1385c54e1d63174d66a70b165f39bb6f6",
-        "work/structure/templates/pocket_1BIN_HEM_5.0.json": "e8aa6bc04ed316686277dbfa6e89c8b6dd0c2df093f1ce21a3d1c6e6212e2e54"
+        "work/structure/templates/pocket_1BIN_HEM_5.0.json": "c13a1eda4c33ece7bb3ad646e0ac7456c53dc3ab9f15e7852775765bafa85e24"
       },
       "n_alignment_columns": 23,
       "outputs_sha256": {
         "results/structure_module/pocket_residues.csv": "2e17d7ad6e122b626f2bf2b116b0b146e9bd4e378fafaa3ecb80e95aaf75c6a4",
-        "work/structure/pocket_columns.json": "b0fbda61a84bc5878e4eba91cee4e9e171254e2f597340dfa127651c43c7a82d"
+        "work/structure/pocket_columns.json": "cb098704437881a22d03a583586476a157163f12a22cb4a7e548d0667b9a9f59"
       },
       "params": {
         "reference_member": "Lba"
@@ -560,13 +587,13 @@
     },
     "pocket_template": {
       "chain": "A",
-      "config_digest": "eaa6afbc423e",
+      "config_digest": "4ae10918b70b",
       "config_source": "config/config.yaml",
-      "generated_utc": "2026-09-22T19:16:41Z",
+      "generated_utc": "2026-09-22T20:28:59Z",
       "inputs_sha256": {},
       "n_pocket_residues": 23,
       "outputs_sha256": {
-        "work/structure/templates/pocket_1BIN_HEM_5.0.json": "e8aa6bc04ed316686277dbfa6e89c8b6dd0c2df093f1ce21a3d1c6e6212e2e54"
+        "work/structure/templates/pocket_1BIN_HEM_5.0.json": "c13a1eda4c33ece7bb3ad646e0ac7456c53dc3ab9f15e7852775765bafa85e24"
       },
       "params": {
         "cfg_section": "251d38d45f11",
@@ -578,25 +605,52 @@
       "step": "pocket_template",
       "tools": {}
     },
-    "select_family": {
-      "config_digest": "eaa6afbc423e",
+    "resolve_family": {
+      "config_digest": "4ae10918b70b",
       "config_source": "config/config.yaml",
-      "generated_utc": "2026-09-22T19:16:37Z",
+      "focal_declared": true,
+      "generated_utc": "2026-09-22T20:06:03Z",
       "inputs_sha256": {
-        "data/reference/PF00042.hmm": "7b300a21130b823627b09dd11fc5a76a7ca49515504c33493d140bcdeda93db3",
         "data/reference/proteins_primary.faa.gz": "603603800a4b1966868214159e892c44655c69ffc690f676732ed1c204c8447a"
       },
-      "n_focal_rescued": 0,
+      "n_focal_declared": 4,
+      "n_seed": 7,
+      "no_outgroup_expected": false,
+      "outputs_sha256": {
+        "results/sequence_module/family_seed.csv": "69f5d95b79dfbd872674d9dd4e6d774885728beaf8ce6eecbe9075df1ed44279"
+      },
+      "params": {
+        "cfg_section": "b25ed173154d",
+        "source": "gene_ids"
+      },
+      "python": "3.11.16",
+      "step": "resolve_family",
+      "tools": {}
+    },
+    "select_family": {
+      "config_digest": "4ae10918b70b",
+      "config_source": "config/config.yaml",
+      "generated_utc": "2026-09-22T20:28:58Z",
+      "has_outgroup": true,
+      "inputs_sha256": {
+        "data/reference/PF00042.hmm": "7b300a21130b823627b09dd11fc5a76a7ca49515504c33493d140bcdeda93db3",
+        "data/reference/proteins_primary.faa.gz": "603603800a4b1966868214159e892c44655c69ffc690f676732ed1c204c8447a",
+        "results/sequence_module/family_seed.csv": "69f5d95b79dfbd872674d9dd4e6d774885728beaf8ce6eecbe9075df1ed44279"
+      },
+      "n_focal": 4,
       "n_hits": 7,
       "n_members": 7,
+      "n_outgroup": 3,
       "n_proteins_searched": 52872,
+      "n_seed_rescued": 0,
       "outputs_sha256": {
         "results/sequence_module/globin_family_members.csv": "5c14b993da3a74d443faa4affc967e6f6cdb6de9892c2429cbefece9663c1419",
         "results/sequence_module/globins.faa": "285bf1079d363a0c45822d2beed9a4a428a76340266ac0a8025bfc77af40f6ca"
       },
       "params": {
         "accession": "PF00042",
-        "cfg_section": "1b4f49870328",
+        "cfg_section": "9800b34d0a3d",
+        "family_source": "gene_ids",
         "threshold": "cut_ga"
       },
       "python": "3.11.16",
@@ -606,13 +660,13 @@
       }
     },
     "structure_pairs": {
-      "config_digest": "eaa6afbc423e",
+      "config_digest": "4ae10918b70b",
       "config_source": "config/config.yaml",
-      "generated_utc": "2026-09-22T19:03:02Z",
+      "generated_utc": "2026-09-22T20:30:22Z",
       "inputs_sha256": {
         "results/sequence_module/globins.aln.faa": "894668d41dbf9e7af733311a6713de72cf6305355027a14eec53f78abd0e4dab",
-        "results/structure_module/structures.csv": "ad33cb5306639cdea6842a02441277aa9f67bfb0c7c72b63e32700aff48b72bc",
-        "work/structure/pocket_columns.json": "b0fbda61a84bc5878e4eba91cee4e9e171254e2f597340dfa127651c43c7a82d"
+        "results/structure_module/structures.csv": "a9ad48278c6c3032b17c958649e8658edd264839089dff0eff85dec0d4efb7a8",
+        "work/structure/pocket_columns.json": "cb098704437881a22d03a583586476a157163f12a22cb4a7e548d0667b9a9f59"
       },
       "outputs_sha256": {
         "results/structure_module/structure_pairs.csv": "2ee29d8c397768ff0eef4bf8d9ece19f3e93d93e20a4f4db9197c47cb8631b14"
@@ -634,6 +688,7 @@
     "structures": {
       "checks": {
         "model_vs_reference_sequence": {
+          "applicable": true,
           "differing": [
             {
               "label": "Glyma.10G198900_GmLb5",
@@ -649,9 +704,9 @@
           "unexplained": []
         }
       },
-      "config_digest": "eaa6afbc423e",
+      "config_digest": "4ae10918b70b",
       "config_source": "config/config.yaml",
-      "generated_utc": "2026-09-22T19:03:01Z",
+      "generated_utc": "2026-09-22T20:25:20Z",
       "inputs_sha256": {
         "results/sequence_module/globins.faa": "285bf1079d363a0c45822d2beed9a4a428a76340266ac0a8025bfc77af40f6ca",
         "results/structure_module/uniprot_accessions.csv": "c9a77a1e72a45da0ac20e1ee7ea220b1385c54e1d63174d66a70b165f39bb6f6",
@@ -664,7 +719,7 @@
         "work/structure/afdb/AF-Q42785-F1.meta.json": "845deb2198a75598582142f52e0b3a7bfc09dece6f649a1e126755ab54e35cbe"
       },
       "outputs_sha256": {
-        "results/structure_module/structures.csv": "ad33cb5306639cdea6842a02441277aa9f67bfb0c7c72b63e32700aff48b72bc"
+        "results/structure_module/structures.csv": "a9ad48278c6c3032b17c958649e8658edd264839089dff0eff85dec0d4efb7a8"
       },
       "params": {
         "max_len_delta": 20,
@@ -676,16 +731,16 @@
     },
     "tree": {
       "best_model": "Q.PLANT+I",
-      "config_digest": "eaa6afbc423e",
+      "config_digest": "4ae10918b70b",
       "config_source": "config/config.yaml",
       "feeds_score": false,
-      "generated_utc": "2026-09-22T19:02:03Z",
+      "generated_utc": "2026-09-22T20:30:19Z",
       "inputs_sha256": {
         "work/phylo/globins.aln.faa": "894668d41dbf9e7af733311a6713de72cf6305355027a14eec53f78abd0e4dab"
       },
       "outputs_sha256": {
-        "results/sequence_module/globins.iqtree": "dbe08b9a3ecbfe7e6c8fe1ccd258ea0da6d64b80a0f63adec928960ee4aeec42",
-        "results/sequence_module/globins.treefile": "e512d393dd6d7bdd6fab07d9e051d1acad427d0ff75fcc7607b4cbb6d3c6d46e"
+        "results/sequence_module/globins.iqtree": "1f21d73c80d6a6064529442df53d72b0a4e15fb5cf4ab355b7bc2a5649881346",
+        "results/sequence_module/globins.treefile": "5edef28a943c548089af368b945e11bce5e91346ded9409770ea2a0a7a06424f"
       },
       "params": {
         "alrt": 1000,
@@ -713,9 +768,9 @@
         "Glyma.11G121800": "Q42785",
         "Glyma.20G191200": "P02236"
       },
-      "config_digest": "eaa6afbc423e",
+      "config_digest": "4ae10918b70b",
       "config_source": "config/config.yaml",
-      "generated_utc": "2026-09-22T19:16:46Z",
+      "generated_utc": "2026-09-22T20:25:13Z",
       "inputs_sha256": {
         "results/sequence_module/globin_family_members.csv": "5c14b993da3a74d443faa4affc967e6f6cdb6de9892c2429cbefece9663c1419"
       },

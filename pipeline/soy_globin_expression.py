@@ -502,6 +502,12 @@ def run(
             raise FileNotFoundError(f"fetch did not produce: {still}")
 
     family = load_family(members_csv)
+    # Bind the resolved members onto the config. For `pfam` and `orthodb` the
+    # membership and its symbols are discovered by the search, so the config
+    # alone cannot label the genes; binding makes `cfg.gene_symbols` report the
+    # family that actually exists. For `gene_ids` it is a no-op in effect,
+    # because the declared and resolved families agree.
+    cfg = cfg.bind_family(pd.read_csv(members_csv))
     counts, cpm = build_pseudobulk(cfg, datadir)
     prof = gene_profiles(cfg, cpm, family)
     pairs = pair_metrics(cfg, cpm, family)

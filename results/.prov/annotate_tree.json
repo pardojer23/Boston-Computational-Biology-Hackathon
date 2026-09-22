@@ -1,13 +1,13 @@
 {
-  "config_digest": "eaa6afbc423e",
+  "config_digest": "4ae10918b70b",
   "config_source": "config/config.yaml",
-  "generated_utc": "2026-09-22T19:02:54Z",
+  "generated_utc": "2026-09-22T20:30:24Z",
   "inputs_sha256": {
     "results/sequence_module/gene_context.csv": "064a1688f30f7fb225208124452f02074fe517356366f038a24ba3bb7ce7147f",
-    "results/sequence_module/globins.treefile": "e512d393dd6d7bdd6fab07d9e051d1acad427d0ff75fcc7607b4cbb6d3c6d46e"
+    "results/sequence_module/globins.treefile": "5edef28a943c548089af368b945e11bce5e91346ded9409770ea2a0a7a06424f"
   },
   "outputs_sha256": {
-    "results/sequence_module/globins.annotated.nwk": "bc2dfc9de80aca1eb1c0d22fa324e1c8b8cfdaff0eb8735731eb2cbc9a352fc3"
+    "results/sequence_module/globins.annotated.nwk": "c3082b4ecd5970a4115b9a64ffb35427ac8d2670d4ca037f38042c4886981719"
   },
   "params": {},
   "python": "3.11.16",

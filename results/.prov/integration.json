@@ -1,7 +1,7 @@
 {
-  "config_digest": "eaa6afbc423e",
+  "config_digest": "4ae10918b70b",
   "config_source": "config/config.yaml",
-  "generated_utc": "2026-09-22T19:17:29Z",
+  "generated_utc": "2026-09-22T20:30:25Z",
   "inputs_sha256": {
     "results/expression_module/expression_pairs.csv": "87a5110f770882b66e46c68927ba7312e1bdc78fb7fb7347c0abeb9150fe2398",
     "results/expression_module/gene_pseudobulk_profiles.csv": "c806b45e90cf57a56b61e2ac1343148216c325932baae06984c366959506f0a6",
@@ -9,7 +9,7 @@
     "results/structure_module/structure_pairs.csv": "2ee29d8c397768ff0eef4bf8d9ece19f3e93d93e20a4f4db9197c47cb8631b14"
   },
   "outputs_sha256": {
-    "results/integration_module/manifest.json": "2d21f3e07f9f74e6e08cf41eafd9d789fdc9b434ac0684e52730141b3fd12367",
+    "results/integration_module/manifest.json": "402bd71b23046817d5d90c55b2566bbcb4e00b14473535a717e7b66364ca07b2",
     "results/integration_module/redundancy_scores.csv": "a7704dd75cc1175c4168bfb821e786002c6dde709c3c3b4541199dd40537ef93",
     "results/integration_module/weight_sensitivity.csv": "c2b1172701d5bf5655067c0365b96674bc992d4a4a935f157ff9cf7677c2172a"
   },
@@ -31,11 +31,13 @@
     "directional_coverage_abundance": {
       "abundance_column": "cpm_mean_nodule",
       "agreeing": 6,
+      "applicable": true,
       "pairs_tested": 6,
       "passed": true,
       "policy": "fail"
     },
     "focal_outgroup_separation": {
+      "applicable": true,
       "focal_min_R": 0.4302018791499305,
       "n_focal_pairs": 6,
       "n_other_pairs": 15,
@@ -44,6 +46,7 @@
       "policy": "fail"
     },
     "pair_join_completeness": {
+      "applicable": true,
       "expected": 21,
       "n_members": 7,
       "n_pairs": 21,
@@ -51,6 +54,7 @@
       "policy": "fail"
     },
     "symmetric_ranking_top": {
+      "applicable": true,
       "margin": 0.01084513214722016,
       "policy": "report",
       "runner_up": "Glyma.10G198800_Lbc3|Glyma.20G191200_Lbc2",

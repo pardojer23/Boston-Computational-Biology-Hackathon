@@ -1,0 +1,22 @@
+{
+  "config_digest": "4ae10918b70b",
+  "config_source": "config/config.yaml",
+  "focal_declared": true,
+  "generated_utc": "2026-09-22T20:06:03Z",
+  "inputs_sha256": {
+    "data/reference/proteins_primary.faa.gz": "603603800a4b1966868214159e892c44655c69ffc690f676732ed1c204c8447a"
+  },
+  "n_focal_declared": 4,
+  "n_seed": 7,
+  "no_outgroup_expected": false,
+  "outputs_sha256": {
+    "results/sequence_module/family_seed.csv": "69f5d95b79dfbd872674d9dd4e6d774885728beaf8ce6eecbe9075df1ed44279"
+  },
+  "params": {
+    "cfg_section": "b25ed173154d",
+    "source": "gene_ids"
+  },
+  "python": "3.11.16",
+  "step": "resolve_family",
+  "tools": {}
+}

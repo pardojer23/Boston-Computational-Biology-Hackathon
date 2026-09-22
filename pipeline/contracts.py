@@ -258,6 +258,35 @@ def _pair_spec(name: str, extra: Sequence[ColumnSpec], n_pairs: int | None) -> T
 # --------------------------------------------------------------------------- #
 
 
+def family_seed_spec(cfg, n_rows: int | None = None) -> TableSpec:
+    """The resolver's output: which genes must be in the family, and which of
+    them the config declared focal.
+
+    ``n_rows`` is deliberately unconstrained. For ``pfam`` with no focal list
+    the seed is legitimately **empty** — the search defines the family — and an
+    empty table is a valid declaration rather than a failure to produce one.
+    """
+    return TableSpec(
+        name="family_seed",
+        columns=(
+            ColumnSpec("gene_id", "str"),
+            ColumnSpec("symbol", "str", nullable=True,
+                       note="null for a gene declared without a symbol"),
+            ColumnSpec("must_include", "bool",
+                       note="force this gene into the family regardless of the "
+                            "search; False for label-only rows, so naming a "
+                            "gene cannot by itself make it a member"),
+            ColumnSpec("is_focal_declared", "bool",
+                       note="a declaration, not the resolved answer; when no row "
+                            "is True every discovered member resolves to focal"),
+            ColumnSpec("source", "str", note="gene_ids | pfam | orthodb"),
+            ColumnSpec("evidence", "str", note="why this gene is in the seed"),
+        ),
+        key=("gene_id",),
+        n_rows=n_rows,
+    )
+
+
 def members_spec(cfg, n_members: int | None = None) -> TableSpec:
     return TableSpec(
         name="globin_family_members",
@@ -524,6 +553,7 @@ def weight_sensitivity_spec(cfg) -> TableSpec:
 
 #: Registry so a CLI shim can look a spec up by output basename.
 SPEC_BUILDERS = {
+    "family_seed": family_seed_spec,
     "globin_family_members": members_spec,
     "gene_context": gene_context_spec,
     "uniprot_accessions": uniprot_accessions_spec,

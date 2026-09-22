@@ -10,8 +10,25 @@
     "rationale": "the four raw molecular features are collinear across the family (Spearman 0.85-0.94) but come apart within the Lb clade (identity vs pocket identity rho = 0.39), so sequence is collapsed to one axis rather than counted twice",
     "seq": "mean of normalised pid_aligned and normalised ESM2 similarity"
   },
-  "config_digest": "eaa6afbc423e",
+  "config_digest": "4ae10918b70b",
   "directional_scores": "R_a_covered_by_b / R_b_covered_by_a use the partner's suppliable dose fraction in place of the symmetric dose ratio",
+  "family_composition": {
+    "clade_vs_family": {
+      "max_abs_difference": 0.39385539409129766,
+      "same_ordering": false,
+      "scope_covers_same_pairs": false,
+      "spearman": 0.7960960269823281
+    },
+    "has_outgroup": true,
+    "n_focal_pairs": 6,
+    "n_outgroup_pairs": 15,
+    "note": "focal and outgroup pairs both present; both normalisation scopes carry their intended meaning.",
+    "pair_classes_present": [
+      "focal-focal",
+      "focal-other",
+      "other-other"
+    ]
+  },
   "metrics_not_used": {
     "coexpression_overlap": "NA upstream \u2014 per-cell quantity, pseudobulk has no cells",
     "duplication_mode": "reported as an interpretive column, deliberately not a score term",
@@ -27,11 +44,13 @@
     "directional_coverage_abundance": {
       "abundance_column": "cpm_mean_nodule",
       "agreeing": 6,
+      "applicable": true,
       "pairs_tested": 6,
       "passed": true,
       "policy": "fail"
     },
     "focal_outgroup_separation": {
+      "applicable": true,
       "focal_min_R": 0.4302018791499305,
       "n_focal_pairs": 6,
       "n_other_pairs": 15,
@@ -40,6 +59,7 @@
       "policy": "fail"
     },
     "pair_join_completeness": {
+      "applicable": true,
       "expected": 21,
       "n_members": 7,
       "n_pairs": 21,
@@ -47,6 +67,7 @@
       "policy": "fail"
     },
     "symmetric_ranking_top": {
+      "applicable": true,
       "margin": 0.01084513214722016,
       "policy": "report",
       "runner_up": "Glyma.10G198800_Lbc3|Glyma.20G191200_Lbc2",

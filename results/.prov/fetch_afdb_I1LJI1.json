@@ -12,15 +12,16 @@
   "checks": {
     "afdb_model_version": {
       "acc": "I1LJI1",
+      "applicable": true,
       "expected": 6,
       "passed": true,
       "policy": "warn",
       "version": 6
     }
   },
-  "config_digest": "eaa6afbc423e",
+  "config_digest": "4ae10918b70b",
   "config_source": "config/config.yaml",
-  "generated_utc": "2026-09-22T19:02:57Z",
+  "generated_utc": "2026-09-22T20:29:35Z",
   "inputs_sha256": {},
   "outputs_sha256": {
     "work/structure/afdb/AF-I1LJI1-F1.meta.json": "907c23ba5c9a5b74e52c6f838345d34473da10e4445af126992fcf21d9c630e4",

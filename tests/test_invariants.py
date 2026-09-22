@@ -327,7 +327,9 @@ def test_section_digest_isolates_changes(cfg):
      "resolves to 0"),
     (lambda d: d["expression"]["tissues"].__setitem__("focal", "leaf"),
      "no library declares"),
-    (lambda d: d["family"]["focal_genes"].__setitem__("Glyma.10G198900", "GmLb5"),
+    # A gene declared both focal and outgroup. `focal_genes` became
+    # `gene_ids` when the family gained three declaration modes.
+    (lambda d: d["family"]["gene_ids"].__setitem__("Glyma.10G198900", "GmLb5"),
      "both"),
     (lambda d: d["checks"]["pair_join_completeness"].__setitem__("policy", "maybe"),
      "must be one of"),

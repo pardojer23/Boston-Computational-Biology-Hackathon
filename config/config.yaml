@@ -25,16 +25,73 @@ family:
     common: soybean
     ncbi_taxon: 3847
 
+  # ------------------------------------------------------------------- #
+  # How the family is declared. Exactly one of the three blocks below may
+  # be populated, and `source` picks it. All three resolve, in
+  # pipeline/family.py, to the same seed table (family_seed.csv), so
+  # nothing downstream knows which mode was used.
+  #
+  #   gene_ids  an explicit set of genes. The list IS the family and every
+  #             member of it is focal. Reproduces the committed result.
+  #   pfam      an HMM search defines the family. `focal` is OPTIONAL.
+  #   orthodb   an OrthoDB group, restricted to this species. `focal` is
+  #             OPTIONAL.
+  #
+  # OMITTING `focal` (pfam/orthodb only) is legal and means "the whole
+  # discovered set is the family, with no outgroup". It is a different
+  # analysis, not a degenerate one, and it costs two things:
+  #   * focal_outgroup_separation has nothing to separate from, so it
+  #     records itself NOT APPLICABLE and applies no verdict. That is not
+  #     the same as passing, and the policy below is left at `fail` so the
+  #     gate re-arms automatically on a family that does have an outgroup.
+  #   * R_clade's scope covers the same pairs as R_family's. It does NOT
+  #     become a duplicate of it: the clade scope still rescales M and E
+  #     separately onto [clade_floor, 1], which changes their relative
+  #     contribution to the product, so the values differ and the ordering
+  #     can differ too (Spearman 0.64 on the committed family run without a
+  #     focal subset). What is lost is the interpretation — R_clade can no
+  #     longer be read as "relative within the ingroup, against a larger
+  #     family". The integration manifest measures the relationship per run
+  #     under family_composition.clade_vs_family rather than assuming it.
+  # ------------------------------------------------------------------- #
+  source: gene_ids          # gene_ids | pfam | orthodb
+
+  # --- mode 1: explicit gene IDs --------------------------------------- #
   # The ingroup: pairs with both members here are scored as focal-focal.
   # Everything else discovered by the HMM search is an outgroup. Promoting
   # GmLb5 (Glyma.10G198900) to a fifth focal gene is a one-line change here —
   # see NEXT_RUN.md §2.1 for the argument and the caveat (lowest pLDDT in the
   # set, and the only AFDB model whose length differs from the a4 transcript).
-  focal_genes:
+  # A bare list is also accepted; symbols are then resolved from UniProt in
+  # module 2 and labels fall back to the bare gene ID.
+  gene_ids:
     Glyma.10G199100: Lba
     Glyma.10G199000: Lbc1
     Glyma.20G191200: Lbc2
     Glyma.10G198800: Lbc3
+
+  # --- mode 2: a Pfam domain ------------------------------------------- #
+  # The search alone defines membership; no genes are seeded, so two runs
+  # with the same accession cannot disagree about who is in the family.
+  # NOTE: running this with `focal` omitted on PF00042 is NOT a reproduction
+  # of the committed leghemoglobin result — it gives 7 focal members and 21
+  # focal-focal pairs with no separation check, which is a different
+  # analysis. The committed result is source: gene_ids.
+  # pfam:
+  #   accession: PF00042
+  #   focal: [Glyma.10G199100, Glyma.10G199000, Glyma.20G191200, Glyma.10G198800]
+
+  # --- mode 3: an OrthoDB group ---------------------------------------- #
+  # Restricted to this species: species_taxon must equal
+  # family.species.ncbi_taxon, and a mismatch fails at config load rather
+  # than half-working. The reference proteome, the GFF, the identifier
+  # regexes and the entire expression atlas are specific to one assembly,
+  # so resolving an orthogroup in another species would need all of them
+  # replaced. Needs network access to data.orthodb.org.
+  # orthodb:
+  #   group: 1234at3193
+  #   species_taxon: 3847
+  #   focal: [Glyma.10G199100, Glyma.10G199000]
 
   # Symbols for members the HMM search finds that are not focal. A member with
   # no entry here is labelled by bare gene ID. Resolved against UniProt in
@@ -400,6 +457,11 @@ checks:
 # --------------------------------------------------------------------------- #
 paths:
   data: data
+  # One family per work directory. Intermediates here are keyed only by
+  # filename, so a second config must override this as well as `results` —
+  # otherwise the two overwrite each other's intermediates and each run leaves
+  # the other's downstream outputs stale. resolve_family stamps this directory
+  # with the family digest and fails on a mismatch.
   work: work
   results: results
   sequence_out: results/sequence_module

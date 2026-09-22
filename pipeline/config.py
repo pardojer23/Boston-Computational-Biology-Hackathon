@@ -137,21 +137,106 @@ class Config:
     # family block is laid out, and so that focal/outgroup membership has one
     # definition (audit finding 6).
 
+    # -- family source ------------------------------------------------------ #
+    # The family can be declared three ways. `source` picks which block is
+    # read; `validate()` enforces that exactly one is populated. All three
+    # resolve, in `pipeline/family.py`, to the same seed table, so nothing
+    # downstream of the resolver knows which mode was used.
+
+    VALID_SOURCES = ("gene_ids", "pfam", "orthodb")
+
+    @property
+    def family_source(self) -> str:
+        """Which of the three declaration modes is in use.
+
+        Defaults to ``gene_ids`` when unset so a config written before the
+        resolver existed keeps working and keeps producing the same members.
+        """
+        return self.get("family.source", "gene_ids")
+
+    @property
+    def declared_focal(self) -> dict[str, str]:
+        """Genes the *config* declares focal, as ``{gene_id: symbol}``.
+
+        **May legitimately be empty.** For ``pfam`` and ``orthodb`` the focal
+        list is optional: omitting it means "everything the search discovers is
+        the family, with no outgroup". That is a different analysis rather than
+        a degenerate one, and it is handled explicitly — see
+        ``evaluate_check(applicable=...)`` and the ``focal_outgroup_separation``
+        check — not by pretending an empty outgroup passed a separation test.
+        """
+        src = self.family_source
+        if src == "gene_ids":
+            block = self.get("family.gene_ids")
+            if block is None:                    # pre-resolver config layout
+                return dict(self["family.focal_genes"])
+            if isinstance(block, dict):
+                return dict(block)
+            return {g: None for g in block}      # bare list, symbols unknown
+        focal = self.get(f"family.{src}.focal")
+        if not focal:
+            return {}
+        if isinstance(focal, dict):
+            return dict(focal)
+        return {g: None for g in focal}
+
+    @property
+    def focal_is_declared(self) -> bool:
+        """False when the family was defined without a focal subset."""
+        return bool(self.declared_focal)
+
+    # -- resolved family ---------------------------------------------------- #
+    # `focal_genes` / `outgroup_symbols` are the *resolved* family. When a
+    # members table has been bound they come from it, because for `pfam` and
+    # `orthodb` the membership is discovered rather than declared and the
+    # config cannot know it. Binding keeps every existing call site
+    # (`cfg.gene_symbols`, `cfg.label_of`, `cfg.pocket_reference_gene`) working
+    # unchanged against whichever mode produced the family.
+
+    def bind_family(self, members) -> "Config":
+        """Return a view of this config whose family is the resolved table.
+
+        ``members`` is a ``globin_family_members.csv`` frame — it carries
+        ``gene_id``, ``symbol`` and ``is_focal``, so it is a complete family
+        definition on its own. The returned Config shares this one's raw data
+        (so digests are unchanged — the binding is a read-time view, not a
+        config edit) and differs only in what the family accessors report.
+        """
+        bound = Config(self._d, source=self.source)
+        bound._members = {
+            "focal": {r.gene_id: (r.symbol or None)
+                      for r in members.itertuples() if bool(r.is_focal)},
+            "outgroup": {r.gene_id: (r.symbol or None)
+                         for r in members.itertuples() if not bool(r.is_focal)},
+        }
+        return bound
+
     @property
     def focal_genes(self) -> dict[str, str]:
-        return dict(self["family.focal_genes"])
+        if getattr(self, "_members", None) is not None:
+            return dict(self._members["focal"])
+        return dict(self.declared_focal)
 
     @property
     def outgroup_symbols(self) -> dict[str, str]:
-        return dict(self.get("family.outgroup_symbols") or {})
+        if getattr(self, "_members", None) is not None:
+            return dict(self._members["outgroup"])
+        return {**(self.get("family.symbols") or {}),
+                **(self.get("family.outgroup_symbols") or {})}
 
     @property
     def gene_symbols(self) -> dict[str, str]:
-        """All known symbols, focal first. Replaces ``core.GENE_SYMBOLS``."""
-        return {**self.focal_genes, **self.outgroup_symbols}
+        """All known symbols, focal first. Replaces ``core.GENE_SYMBOLS``.
+
+        Members with no symbol are omitted rather than mapped to ``None``:
+        ``label_of`` falls back to the bare gene ID for those, which is what a
+        family declared as a plain list of gene IDs produces.
+        """
+        merged = {**self.focal_genes, **self.outgroup_symbols}
+        return {g: s for g, s in merged.items() if s}
 
     def is_focal(self, gene_id: str) -> bool:
-        return gene_id in self["family.focal_genes"]
+        return gene_id in self.focal_genes
 
     def label_of(self, gene_id: str) -> str:
         """``Glyma.10G199100`` -> ``Glyma.10G199100_Lba``. Replaces ``core.label_of``."""
@@ -176,8 +261,23 @@ class Config:
         This replaces ``next(l for l in labels if l.endswith('_Lba'))`` in
         ``run_structure.py``, which raised a bare ``StopIteration`` if the
         symbol was renamed (audit 2.4b).
+
+        Accepts either a **symbol** or a bare **gene ID**. The gene-ID form
+        matters for the ``pfam`` and ``orthodb`` modes: a family discovered by
+        search may have no declared symbols at all, and then there is no symbol
+        to name the reference member by — but the pocket still has to be
+        transferred through some specific member's alignment row.
         """
-        return self.gene_for_symbol(self["structure.pocket.reference_member"])
+        ref = self["structure.pocket.reference_member"]
+        if ref in self.gene_symbols:            # already a gene ID
+            return ref
+        known = set(self.gene_symbols.values())
+        if ref not in known and self.family_source != "gene_ids":
+            # Not a declared symbol, and membership is discovered rather than
+            # declared, so treat it as a gene ID and let the structure stage
+            # fail against the actual alignment if it is not a member.
+            return ref
+        return self.gene_for_symbol(ref)
 
     # -- derived expression accessors -------------------------------------- #
 
@@ -274,11 +374,55 @@ def validate(cfg: Config) -> Config:
     for s in REQUIRED_SECTIONS:
         _require(isinstance(cfg.get(s), dict), f"missing or non-mapping section: {s}")
 
+    # -- family source ------------------------------------------------------ #
+    src = cfg.family_source
+    _require(src in Config.VALID_SOURCES,
+             f"family.source is {src!r}; must be one of {list(Config.VALID_SOURCES)}")
+
+    populated = [m for m in Config.VALID_SOURCES if cfg.get(f"family.{m}") is not None]
+    if cfg.get("family.focal_genes") is not None and "gene_ids" not in populated:
+        populated.append("gene_ids")          # pre-resolver layout
+    _require(src in populated,
+             f"family.source is {src!r} but family.{src} is not populated "
+             f"(populated: {populated or 'none'})")
+    extra = [m for m in populated if m != src]
+    _require(not extra,
+             f"family.source is {src!r} but these other source blocks are also "
+             f"populated: {extra}. Exactly one may be declared, so that the "
+             f"family definition has a single reading.")
+
+    if src == "gene_ids":
+        declared = cfg.declared_focal
+        _require(len(declared) >= 2,
+                 f"family.gene_ids has {len(declared)} entries; at least 2 are "
+                 f"needed to form a pair. For source 'gene_ids' the list IS the "
+                 f"family, so it cannot be omitted or be a singleton.")
+    else:
+        # focal is OPTIONAL for pfam and orthodb: omitting it means the whole
+        # discovered set is the family, with no outgroup. Legal, and handled
+        # explicitly downstream — focal_outgroup_separation records itself as
+        # not-applicable rather than passing on an empty comparison.
+        declared = cfg.declared_focal
+        _require(len(declared) != 1,
+                 f"family.{src}.focal declares exactly one gene. Declare two or "
+                 f"more to define an ingroup, or omit it entirely to treat the "
+                 f"whole discovered set as the family.")
+
+    if src == "orthodb":
+        want = cfg["family.species.ncbi_taxon"]
+        got = cfg.get("family.orthodb.species_taxon", want)
+        _require(int(got) == int(want),
+                 f"family.orthodb.species_taxon is {got} but family.species."
+                 f"ncbi_taxon is {want}. This pipeline is scoped to one species: "
+                 f"the reference proteome, GFF, identifier regexes and the whole "
+                 f"expression atlas are specific to it. Resolving an orthogroup "
+                 f"in another species would need all of those replaced, so it "
+                 f"fails here rather than half-working.")
+        _require(bool(cfg.get("family.orthodb.group")),
+                 "family.orthodb.group is required when family.source is 'orthodb'")
+
     # -- family ------------------------------------------------------------- #
-    focal = cfg.focal_genes
-    _require(len(focal) >= 2,
-             f"family.focal_genes has {len(focal)} entries; at least 2 are needed "
-             f"to form a focal pair")
+    focal = cfg.declared_focal
     overlap = set(focal) & set(cfg.outgroup_symbols)
     _require(not overlap,
              f"genes appear in both family.focal_genes and family.outgroup_symbols: "
@@ -312,11 +456,15 @@ def validate(cfg: Config) -> Config:
     # -- structure ---------------------------------------------------------- #
     _require(float(cfg["structure.pocket.cutoff_a"]) > 0,
              "structure.pocket.cutoff_a must be positive")
-    # The reference member must exist in the family block; this is the check
-    # that used to be an uncaught StopIteration at runtime.
+    # The reference member must resolve; this is the check that used to be an
+    # uncaught StopIteration at runtime. For `gene_ids` the family is declared,
+    # so a symbol must resolve here. For `pfam`/`orthodb` membership is
+    # discovered and there may be no declared symbols at all, so a bare gene ID
+    # is accepted and checked against the real alignment at the structure
+    # stage, where the members are actually known.
     cfg.pocket_reference_gene
     pinned = cfg.get("structure.uniprot.pinned")
-    if pinned:
+    if pinned and src == "gene_ids":
         known = set(cfg.gene_symbols)
         unknown = set(pinned) - known
         _require(not unknown,
@@ -392,16 +540,45 @@ class CheckFailure(RuntimeError):
 
 
 def evaluate_check(cfg: Config, name: str, passed: bool, evidence: dict,
-                   sink: dict | None = None) -> dict:
+                   sink: dict | None = None, *,
+                   applicable: bool = True, reason: str | None = None) -> dict:
     """Record a check with its evidence and apply the configured policy.
 
-    Returns the recorded row (also appended to ``sink[name]`` when given) so it
+    Returns the recorded row (also written to ``sink[name]`` when given) so it
     can go straight into a manifest. ``report`` records without a verdict —
     for quantities that are measured and deliberately not asserted, such as
     which focal pair ranks first.
+
+    ``applicable=False`` records the check as **not applicable** and applies no
+    verdict *whatever the configured policy says*. This is not the same as
+    passing, and the distinction is load-bearing. A check whose comparison set
+    is empty — ``focal_outgroup_separation`` when the family was defined
+    without a focal subset, so there are no outgroup pairs to separate from —
+    has no evidence either way. Reporting that as ``passed=True`` would turn a
+    ``policy: fail`` gate into a silent green light: the run would go green on
+    a check that never ran. The row carries ``applicable: false`` and a
+    ``reason`` and omits ``passed`` entirely, so a reader of the manifest can
+    see which gates were live for a given run.
+
+    The configured policy is left untouched, so re-running the same config on a
+    family that *does* have an outgroup re-arms the gate with no config edit.
     """
     policy = cfg.check_policy(name)
     row = {"policy": policy, **evidence}
+    if not applicable:
+        if reason is None:
+            raise ValueError(
+                f"evaluate_check({name!r}, applicable=False) requires a reason: "
+                f"a check that did not run must say why in the manifest"
+            )
+        row["applicable"] = False
+        row["reason"] = reason
+        if sink is not None:
+            sink[name] = row
+        print(f"[check] n/a  {name}: {reason}", flush=True)
+        return row
+
+    row["applicable"] = True
     if policy != "report":
         row["passed"] = bool(passed)
     if sink is not None:

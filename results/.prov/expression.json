@@ -1,7 +1,7 @@
 {
-  "config_digest": "eaa6afbc423e",
+  "config_digest": "4ae10918b70b",
   "config_source": "config/config.yaml",
-  "generated_utc": "2026-09-22T19:17:06Z",
+  "generated_utc": "2026-09-22T20:06:18Z",
   "inputs_sha256": {
     "results/sequence_module/globin_family_members.csv": "5c14b993da3a74d443faa4affc967e6f6cdb6de9892c2429cbefece9663c1419",
     "work/expression/pseudobulk_counts.csv.gz": "ddf06c544210b46e7e7a2a375fbfc843cae6ae08ae5e9b403ab0d6fe504296f0"
@@ -13,7 +13,7 @@
   "outputs_sha256": {
     "results/expression_module/expression_pairs.csv": "87a5110f770882b66e46c68927ba7312e1bdc78fb7fb7347c0abeb9150fe2398",
     "results/expression_module/gene_pseudobulk_profiles.csv": "c806b45e90cf57a56b61e2ac1343148216c325932baae06984c366959506f0a6",
-    "results/expression_module/manifest.json": "2796107055cb3a5f8ba59605174debb86c7ecd1e3d72ed6e3c084abe5f2248c3",
+    "results/expression_module/manifest.json": "dbf3effeafd9022d1f8610bdac7ae2f4dcebc4e54c5d50e60cbc29e0e4aa7091",
     "results/expression_module/marker_profiles.csv": "5feb86c25bfaf45da9aee497ab073962d3ea08abe2c4304241e4d9bb4787e31b"
   },
   "params": {

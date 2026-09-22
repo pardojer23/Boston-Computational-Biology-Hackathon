@@ -156,27 +156,105 @@ def step_fetch_reference(a, cfg):
 # --------------------------------------------------------------------------- #
 
 
+def _stamp_work_dir(cfg) -> None:
+    """Refuse to share a work directory between two family definitions.
+
+    ``paths.work`` holds intermediates keyed by nothing but their filename —
+    ``work/phylo/globins.aln.faa``, ``work/hmmer/<acc>.tblout``. Two configs
+    that point ``paths.results`` at different trees but leave ``paths.work``
+    at the default therefore overwrite each other's intermediates, and each
+    run silently invalidates the other's downstream rules. Nothing about the
+    output tree reveals this: the tables that get rebuilt are correct, and the
+    ones that do not get rebuilt are stale.
+
+    This is the same failure the checksum cache keys already guard against,
+    one level up, so it gets the same treatment: stamp the directory with the
+    family digest and fail if it changes.
+    """
+    work = Path(cfg["paths.work"])
+    work.mkdir(parents=True, exist_ok=True)
+    stamp_path = work / ".family_stamp.json"
+    stamp = {"family_digest": cfg.section_digest("family"),
+             "family_source": cfg.family_source,
+             "results": cfg["paths.results"],
+             "config": str(cfg.source) if cfg.source else None}
+    if stamp_path.exists():
+        prev = json.loads(stamp_path.read_text())
+        if prev.get("family_digest") != stamp["family_digest"]:
+            raise SystemExit(
+                f"{work}/ was last written by a different family definition.\n"
+                f"  previous : {prev.get('family_source')} "
+                f"digest {prev.get('family_digest')} -> {prev.get('results')}\n"
+                f"  now      : {stamp['family_source']} "
+                f"digest {stamp['family_digest']} -> {stamp['results']}\n"
+                f"Intermediates in work/ are keyed only by filename, so the two "
+                f"would overwrite each other and each run would leave the "
+                f"other's downstream outputs stale without saying so. Point "
+                f"paths.work at a separate directory for this config, or delete "
+                f"{work}/ to start it fresh."
+            )
+    stamp_path.write_text(json.dumps(stamp, indent=2, sort_keys=True))
+
+
+def step_resolve_family(a, cfg):
+    """Resolve the family declaration (gene IDs | Pfam | OrthoDB) to a seed."""
+    import family as fammod
+
+    _stamp_work_dir(cfg)
+
+    proteome_genes = {
+        core.gene_of(pid, cfg["family.identifiers.id_prefix_strip"])
+        for pid in core.read_fasta(a.proteome)
+    }
+    seed = fammod.resolve(cfg, proteome_genes)
+    contracts.write_csv(seed, a.out, contracts.family_seed_spec(cfg))
+    n_focal = int(seed.is_focal_declared.sum()) if len(seed) else 0
+    src = cfg.family_source
+    write_prov("resolve_family", cfg, [a.proteome], [a.out],
+               params={"source": src,
+                       "cfg_section": cfg.section_digest("family")},
+               extra={"n_seed": int(len(seed)),
+                      "n_focal_declared": n_focal,
+                      "focal_declared": bool(n_focal),
+                      "no_outgroup_expected": bool(n_focal == 0)},
+               prov_dir=a.prov)
+    if n_focal:
+        print(f"[resolve_family] source={src}: {len(seed)} seed genes, "
+              f"{n_focal} declared focal")
+    else:
+        print(f"[resolve_family] source={src}: {len(seed)} seed genes, no focal "
+              f"subset declared -> every discovered member will be focal and "
+              f"the family will have no outgroup")
+
+
 def step_select_family(a, cfg):
-    """HMM search over the proteome, unioned with the configured focal genes."""
+    """HMM search over the proteome, unioned with the resolved family seed."""
+    seed = contracts.read_csv(a.seed, contracts.family_seed_spec(cfg))
     seqs, members = core.select_family(
-        a.proteome, a.hmm, a.workdir, cfg, cpu=a.threads)
+        a.proteome, a.hmm, a.workdir, cfg, seed=seed, cpu=a.threads)
     core.write_fasta(seqs, a.out_faa)
     contracts.write_csv(members, a.out_members,
                         contracts.members_spec(cfg, len(members)))
     n_searched = len(core.read_fasta(a.proteome))
-    write_prov("select_family", cfg, [a.proteome, a.hmm],
+    write_prov("select_family", cfg, [a.proteome, a.hmm, a.seed],
                [a.out_faa, a.out_members],
                params={"threshold": cfg["sequence.select.threshold"],
                        "accession": cfg["sequence.hmm.accession"],
+                       "family_source": cfg.family_source,
                        "cfg_section": cfg.section_digest("sequence.select",
-                                                         "family.focal_genes")},
+                                                         "family")},
                tools={"hmmsearch": core.tool_version(["hmmsearch", "-h"])},
                extra={"n_proteins_searched": n_searched,
                       "n_members": int(len(members)),
                       "n_hits": int(members.pfam_hit.sum()),
-                      "n_focal_rescued": int((~members.pfam_hit).sum())},
+                      "n_focal": int(members.is_focal.sum()),
+                      "n_outgroup": int((~members.is_focal).sum()),
+                      "has_outgroup": bool((~members.is_focal).any()),
+                      "n_seed_rescued": int((~members.pfam_hit).sum())},
                prov_dir=a.prov)
-    print(f"[select_family] {len(members)} of {n_searched} proteins")
+    print(f"[select_family] {len(members)} of {n_searched} proteins; "
+          f"{int(members.is_focal.sum())} focal, "
+          f"{int((~members.is_focal).sum())} outgroup")
 
 
 def step_cutoff_check(a, cfg):
@@ -288,6 +366,21 @@ def step_classify_pairs(a, cfg):
         cfg["family.identifiers.chromosome_regex"])
     ident_long = pd.read_csv(a.identity_pairs)
     cos = pd.read_csv(a.cosine, index_col=0)
+    # The embedding matrix is keyed on member LABELS, and labels change when
+    # the family or its symbols change. A matrix carried over from a different
+    # family definition therefore indexes cleanly on nothing and used to fail
+    # as a bare KeyError four frames down. Check it here, where the mismatch
+    # can be named.
+    want, got = set(members.label), set(cos.index)
+    if want != got:
+        raise SystemExit(
+            f"{a.cosine} does not match this family.\n"
+            f"  only in the members table : {sorted(want - got)}\n"
+            f"  only in the matrix        : {sorted(got - want)}\n"
+            f"Labels are derived from the family definition, so a matrix "
+            f"computed under a different family.source, focal set or symbol "
+            f"map cannot be reused. Delete it and let the embed rule re-run."
+        )
     pairs, ctx = core.classify_pairs(
         members, genes,
         max_intervening=int(d["tandem_max_intervening_genes"]),
@@ -651,6 +744,35 @@ def step_integration(a, cfg):
           f"{top.label_a}|{top.label_b} R_family={top.R_family:.3f}")
 
 
+def _family_record(cfg, results_dir: Path) -> dict:
+    """What the family actually resolved to, not just what was declared.
+
+    For `pfam` and `orthodb` the config cannot know the membership — the search
+    does — so the manifest reads the resolved members table. `has_outgroup` is
+    recorded explicitly because it decides whether the separation check was a
+    live gate for this run.
+    """
+    rec = {
+        "name": cfg["family.name"],
+        "species": cfg["family.species.name"],
+        "source": cfg.family_source,
+        "focal_declared": cfg.focal_is_declared,
+        "declared_focal": cfg.declared_focal,
+        "family_digest": cfg.section_digest("family"),
+    }
+    members_csv = results_dir / "sequence_module" / "globin_family_members.csv"
+    if members_csv.exists():
+        m = pd.read_csv(members_csv)
+        rec["resolved"] = {
+            "n_members": int(len(m)),
+            "n_focal": int(m.is_focal.sum()),
+            "n_outgroup": int((~m.is_focal).sum()),
+            "has_outgroup": bool((~m.is_focal).any()),
+            "focal_genes": sorted(m.loc[m.is_focal, "gene_id"].tolist()),
+        }
+    return rec
+
+
 def step_run_manifest(a, cfg):
     """Collect every step's provenance sidecar into one run manifest.
 
@@ -687,10 +809,7 @@ def step_run_manifest(a, cfg):
         "git_commit": git,
         "config_digest": cfg.digest(),
         "config_source": str(cfg.source) if cfg.source else None,
-        "family": {"name": cfg["family.name"],
-                   "species": cfg["family.species.name"],
-                   "focal_genes": cfg.focal_genes,
-                   "focal_digest": cfg.section_digest("family.focal_genes")},
+        "family": _family_record(cfg, Path(a.out).parent),
         "environment": {"python": platform.python_version(),
                         "platform": platform.platform(),
                         **_pkg_versions("numpy", "pandas", "scipy", "Bio")},
@@ -712,9 +831,10 @@ def step_run_manifest(a, cfg):
 STEPS = {
     "fetch-reference": (step_fetch_reference,
                         ["which", "out", "force"]),
+    "resolve-family": (step_resolve_family, ["proteome", "out"]),
     "select-family": (step_select_family,
-                      ["proteome", "hmm", "workdir", "out_faa", "out_members",
-                       "threads"]),
+                      ["proteome", "hmm", "workdir", "seed", "out_faa",
+                       "out_members", "threads"]),
     "cutoff-check": (step_cutoff_check,
                      ["hmm", "proteome", "members", "workdir", "out", "threads"]),
     "align": (step_align, ["faa", "out", "threads"]),

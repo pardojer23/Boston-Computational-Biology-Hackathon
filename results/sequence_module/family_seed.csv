@@ -1,0 +1,8 @@
+gene_id,symbol,must_include,is_focal_declared,source,evidence
+Glyma.10G198800,Lbc3,True,True,gene_ids,declared in family.gene_ids
+Glyma.10G198900,GmLb5,False,False,gene_ids,symbol declared in family.outgroup_symbols
+Glyma.10G199000,Lbc1,True,True,gene_ids,declared in family.gene_ids
+Glyma.10G199100,Lba,True,True,gene_ids,declared in family.gene_ids
+Glyma.11G121700,Hb1,False,False,gene_ids,symbol declared in family.outgroup_symbols
+Glyma.11G121800,Hb2,False,False,gene_ids,symbol declared in family.outgroup_symbols
+Glyma.20G191200,Lbc2,True,True,gene_ids,declared in family.gene_ids
