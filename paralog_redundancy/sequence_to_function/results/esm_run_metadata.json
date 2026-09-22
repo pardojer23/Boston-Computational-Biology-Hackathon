@@ -1,0 +1,7 @@
+{
+  "model": "esm2_t33_650M_UR50D",
+  "repr_layer": 33,
+  "torch": "2.2.2",
+  "score": "masked-marginal log-odds (Meier et al. 2021) at positions differing between aligned paralogs",
+  "sign": "more negative = greater predicted functional divergence"
+}

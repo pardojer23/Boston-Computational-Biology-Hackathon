@@ -1,0 +1,6 @@
+gene,symbol,protein_len_aa,min_embed_cosine_distance,closest_by_embedding,best_llr_mean_own_context,mildest_divergence_partner,mean_llr_own_context
+GLYMA_10G198800,LB1,145,0.000589,LB4,1.1565,LB4,0.2548
+GLYMA_10G198900,LB5,168,0.017465,LB1,-0.0313,LB4,-0.1521
+GLYMA_10G199000,LB2,144,0.000971,LB4,0.9674,LB4,0.311
+GLYMA_10G199100,LB3,144,0.001948,LB4,0.6875,LB4,0.0467
+GLYMA_20G191200,LB4,145,0.000589,LB1,-0.3492,LB5,-0.8953
