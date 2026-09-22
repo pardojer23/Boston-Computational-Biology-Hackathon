@@ -144,6 +144,15 @@ cluster is four contiguous genes, all on the minus strand:
 
 `Glyma.20G191200` (Lbc2) is the single Gm20 copy at 42,955,083–42,956,301.
 
+### 1.7 Querying expression patterns. [**NEW TASK**]
+
+Obtain expression data (TPM or other expression values) for the cell atlas described in this paper: https://www.cell.com/cell/fulltext/S0092-8674(24)01273-X?_returnURL=https%3A%2F%2Flinkinghub.elsevier.com%2Fretrieve%2Fpii%2FS009286742401273X%3Fshowall%3Dtrue
+
+I want you to compute pairwise coexpression patterns for each gene across tissues or cell types (Pearson or spearman). Compute the log2 fold change averaged across tissues/cell types. And compute the standard deviation of log2 fold change.
+
+This is not yet implemented. You will have to do this. 
+
+
 ---
 
 ## 2. The two findings that should change the score design

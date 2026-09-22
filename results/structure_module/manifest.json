@@ -1,0 +1,54 @@
+{
+  "afdb_api": "https://alphafold.ebi.ac.uk/api/prediction/{acc}",
+  "generated_utc": "2026-09-22T15:49:09Z",
+  "lb_clade_pocket_identity": {
+    "max": 100.0,
+    "min": 91.3
+  },
+  "lb_clade_tm_score": {
+    "max": 0.9976,
+    "min": 0.9816,
+    "n_pairs": 6
+  },
+  "n_structures": 7,
+  "pocket": {
+    "chain": "A",
+    "cutoff_a": 5.0,
+    "ligand": "HEM",
+    "n_alignment_columns": 23,
+    "n_pocket_residues_crystal": 23,
+    "pocket_resnums_crystal": [
+      43,
+      44,
+      45,
+      46,
+      57,
+      61,
+      64,
+      65,
+      68,
+      69,
+      88,
+      91,
+      92,
+      94,
+      96,
+      97,
+      101,
+      102,
+      105,
+      133,
+      136,
+      137,
+      140
+    ],
+    "template_pdb": "1BIN",
+    "uniprot_binding_sites_checked": 5,
+    "uniprot_binding_sites_inside_pocket": 4,
+    "unmappable_resnums": []
+  },
+  "runner": "pipeline/run_structure.py",
+  "structure_source": "AlphaFold DB (no prediction run; no GPU used)",
+  "tm_score_convention": "normalised by the shorter chain",
+  "wall_seconds": 12.8
+}
