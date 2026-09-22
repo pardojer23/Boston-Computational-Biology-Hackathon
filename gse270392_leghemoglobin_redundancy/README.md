@@ -191,13 +191,17 @@ globular-stage seed + 17 heart-stage seed):
 types, 99 have zero expression of *both* genes (every cell type outside the
 nodule -- see the figure below), and only 12 (all in the nodule) have nonzero
 expression of both. Pooling in the 99 trivial zero/zero agreements inflates
-both correlations relative to a same-tissue-only comparison; that is why raw
-Pearson r rises from 0.696 (log-transformed, 14 nodule cell types only, used
-as the correlation input for the Benoit et al. classification above) to
-0.836 here, and Spearman rises further still (0.959), since a rank-based
-statistic is especially sensitive to a large block of tied zeros. The
-log2(CPM+1) Pearson (0.942) and Spearman (0.959) are closer to the
-nodule-only numbers because the log transform compresses the zero/zero block
+both correlations relative to a same-tissue-only comparison. For reference,
+the direct (non-rank-standardized) Pearson correlation on log2(CPM+1) across
+the 14 nodule cell types alone -- the raw correlation that the Benoit et al.
+classification above then rank-standardizes against 20,505 co-detected genes
+to get its coexpression network value of 0.945 -- is 0.696: noticeably lower
+than either the raw-CPM (0.836) or the log2(CPM+1) (0.942) Pearson computed
+here across all 112 cell types. Spearman rises further still (0.959) when
+all cell types are pooled, since a rank-based statistic is especially
+sensitive to a large block of tied zeros. The log2(CPM+1) Pearson across all
+112 cell types (0.942) is closer to the all-112 Spearman than the nodule-only
+raw correlation is, because the log transform compresses the zero/zero block
 into a single tied value rather than letting it dominate the linear scale.
 The fold-change statistics are unaffected by this and are numerically
 identical to the nodule-only pass, since a fold change is undefined (and
