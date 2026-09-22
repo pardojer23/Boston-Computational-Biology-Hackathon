@@ -1,0 +1,15 @@
+"dataset","assay","tissue","symbol","gene","total_counts","rank","n_genes","n_barcodes","pct_of_counts","median_gene_total","rank_pct"
+"GSE270392","snRNA-seq (nuclei)","early nodule","Lba","Glyma.10G199100",668,45386,52594,29436,0.000378919832067268,2496,86.3
+"GSE270392","snRNA-seq (nuclei)","early nodule","Lbc1","Glyma.10G199000",777,44218,52594,29436,0.000440749565144113,2496,84.07
+"GSE270392","snRNA-seq (nuclei)","early nodule","Lbc2","Glyma.20G191200",1096,40807,52594,29436,0.000621700802313961,2496,77.59
+"GSE270392","snRNA-seq (nuclei)","early nodule","Lbc3","Glyma.10G198800",3038,21481,52594,29436,0.00172329109254545,2496,40.84
+"GSE270392","snRNA-seq (nuclei)","early nodule","GmLb5","Glyma.10G198900",865,43245,52594,29436,0.000490667147811657,2496,82.22
+"GSE270392","snRNA-seq (nuclei)","early nodule","Hb1","Glyma.11G121700",1733,34031,52594,29436,0.000983036031396072,2496,64.71
+"GSE270392","snRNA-seq (nuclei)","early nodule","Hb2","Glyma.11G121800",7663,4343,52594,29436,0.00434680040887946,2496,8.26
+"GSE226149","scRNA-seq (protoplast)","mature nodule","Lba","Glyma.10G199100",885854,1,57147,1846051,1.86490270845344,70,0
+"GSE226149","scRNA-seq (protoplast)","mature nodule","Lbc1","Glyma.10G199000",372985,6,57147,1846051,0.785209229413091,70,0.01
+"GSE226149","scRNA-seq (protoplast)","mature nodule","Lbc2","Glyma.20G191200",212387,12,57147,1846051,0.447117799931253,70,0.02
+"GSE226149","scRNA-seq (protoplast)","mature nodule","Lbc3","Glyma.10G198800",247580,8,57147,1846051,0.521206217456716,70,0.01
+"GSE226149","scRNA-seq (protoplast)","mature nodule","GmLb5","Glyma.10G198900",114,25943,57147,1846051,0.000239993169036536,70,45.4
+"GSE226149","scRNA-seq (protoplast)","mature nodule","Hb1","Glyma.11G121700",20,34057,57147,1846051,4.21040647432519e-05,70,59.6
+"GSE226149","scRNA-seq (protoplast)","mature nodule","Hb2","Glyma.11G121800",1741,5350,57147,1846051,0.00366515883590008,70,9.36

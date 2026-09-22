@@ -1,0 +1,45 @@
+{
+  "source_series": "GSE226149",
+  "source_note": "mature nodule + root, protoplast scRNA-seq, used as pseudobulk",
+  "rejected_series": "GSE270392",
+  "rejected_reason": "snRNA-seq of early nodule; Lba ranks 45,386/52,594 with 668 counts against a median gene total of 2,496; 9-33 co-detected nuclei per Lb pair",
+  "libraries": {
+    "GSM7065810": {
+      "stem": "Nodule_sample1",
+      "tissue": "nodule",
+      "total_counts": 47501352
+    },
+    "GSM7065811": {
+      "stem": "Nodule_sample2",
+      "tissue": "nodule",
+      "total_counts": 48565100
+    },
+    "GSM7065807": {
+      "stem": "Root_sample1",
+      "tissue": "root",
+      "total_counts": 14665336
+    },
+    "GSM7065808": {
+      "stem": "Root_sample2",
+      "tissue": "root",
+      "total_counts": 20727649
+    },
+    "GSM7065809": {
+      "stem": "Root_sample3",
+      "tissue": "root",
+      "total_counts": 31599717
+    }
+  },
+  "normalisation": "CPM over summed library counts; no cell calling",
+  "metrics_emitted": [
+    "cpm per library",
+    "cpm mean per tissue",
+    "tau over tissue means",
+    "spearman of log1p-CPM profiles"
+  ],
+  "metrics_not_computable": {
+    "detection_rate": "per-cell quantity; pseudobulk has no cells",
+    "coexpression_overlap": "per-cell quantity; pseudobulk has no cells"
+  },
+  "tau_caveat": "two tissue types only; tau collapses to a nodule-vs-root contrast"
+}
