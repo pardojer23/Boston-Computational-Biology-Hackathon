@@ -1,0 +1,67 @@
+tissue,pair,cell_type,spearman_rho,authors_kept,rule_rho_gt_075,explanation
+early_maturation,1,Dividing_cell,0.966,True,True,kept
+early_maturation,2,Em_epidermis,0.955,True,True,kept
+early_maturation,3,Em_parenchyma,0.981,True,True,kept
+early_maturation,4,Em_vasculature,0.84,True,True,kept
+early_maturation,5,Endosperm,0.964,True,True,kept
+early_maturation,6,SC_endothelium,0.874,True,True,kept
+early_maturation,7,SC_epidermis,0.983,True,True,kept
+early_maturation,8,SC_parenchyma,0.976,True,True,kept
+early_maturation,9,SC_vasculature,0.968,True,True,kept
+early_maturation,10,SC_xylem,0.934,True,True,kept
+early_maturation,11,Unknown,0.832,False,True,unannotated cluster
+early_nodule,1,Cortex_Epidermis,0.982,True,True,kept
+early_nodule,2,Endodermis,0.626,False,False,rho<=0.75
+early_nodule,3,Nodule_infected_cell,0.907,True,True,kept
+early_nodule,4,Nodule_meritem,0.752,True,True,kept
+early_nodule,5,Nodule_uninfected_cell,0.917,True,True,kept
+early_nodule,6,Pericycle,0.799,True,True,kept
+early_nodule,7,Phloem,0.627,False,False,rho<=0.75
+early_nodule,8,Procambium,0.924,True,True,kept
+early_nodule,9,Xylem,0.616,False,False,rho<=0.75
+globular,1,Dividing_cell,0.952,True,True,kept
+globular,2,Em_innitials,0.911,True,True,kept
+globular,3,Endosperm,0.968,True,True,kept
+globular,4,SC_endothelium,0.956,True,True,kept
+globular,5,SC_epidermis,0.988,True,True,kept
+globular,6,SC_hillum_parenchyma,0.904,True,True,kept
+globular,7,SC_hillum_vasculature,0.962,True,True,kept
+globular,8,SC_inner_integument,0.953,True,True,kept
+globular,9,SC_parenchyma,0.993,True,True,kept
+globular,10,SC_phloem,0.971,True,True,kept
+globular,11,SC_unknown,0.801,False,True,unannotated cluster
+globular,12,SC_vascular_parenchyma,0.917,True,True,kept
+globular,13,SC_xylem,0.829,False,True,not a true replicate pair (reorder index bug)
+heart,1,Dividing_cell,0.973,True,True,kept
+heart,2,Em_innitials,0.956,True,True,kept
+heart,3,Endosperm,0.98,True,True,kept
+heart,4,SC_endothelium,0.972,True,True,kept
+heart,5,SC_epidermis,0.989,True,True,kept
+heart,6,SC_hillum_parenchyma,0.956,True,True,kept
+heart,7,SC_hillum_vasculature,0.98,True,True,kept
+heart,8,SC_inner_integument,0.967,True,True,kept
+heart,9,SC_parenchyma,0.991,True,True,kept
+heart,10,SC_phloem,0.981,True,True,kept
+heart,11,SC_vascular_parenchyma,0.982,True,True,kept
+heart,12,SC_xylem,0.866,True,True,kept
+hypocotyl,1,Dividing_cell,0.88,True,True,kept
+hypocotyl,2,Endodermis,0.88,True,True,kept
+hypocotyl,3,Epidermis,0.893,True,True,kept
+hypocotyl,4,Inner_cortex,0.899,True,True,kept
+hypocotyl,5,Outer_cortex,0.965,True,True,kept
+hypocotyl,6,Pericycle,0.851,True,True,kept
+hypocotyl,7,Phloem,0.884,True,True,kept
+hypocotyl,8,Pith,0.956,True,True,kept
+hypocotyl,9,Procambium,0.949,True,True,kept
+hypocotyl,10,Trichome,0.93,True,True,kept
+hypocotyl,11,Unknown,0.769,False,True,unannotated cluster
+hypocotyl,12,Vascular_parenchyma,0.949,True,True,kept
+hypocotyl,13,Xylem,0.57,False,False,rho<=0.75; not a true replicate pair (reorder index bug)
+root,1,Cortex,0.961,True,True,kept
+root,2,Endodermis,0.854,True,True,kept
+root,3,Epidermis,0.954,True,True,kept
+root,4,Pericycle,0.803,True,True,kept
+root,5,Phloem,0.641,False,False,rho<=0.75
+root,6,Procambium,0.88,True,True,kept
+root,7,Root_hair,0.812,True,True,kept
+root,8,Xylem,0.514,False,False,rho<=0.75

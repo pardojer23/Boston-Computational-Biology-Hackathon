@@ -1,0 +1,7 @@
+"tissue","raw_cols","pairs","pairs_gt_075","pairs_authors","agree","dup_index_bug"
+"early_maturation",22,11,11,10,FALSE,FALSE
+"early_nodule",18,9,6,6,TRUE,FALSE
+"globular",26,13,13,11,FALSE,TRUE
+"heart",24,12,12,12,TRUE,FALSE
+"hypocotyl",26,13,12,11,FALSE,TRUE
+"root",16,8,6,6,TRUE,FALSE

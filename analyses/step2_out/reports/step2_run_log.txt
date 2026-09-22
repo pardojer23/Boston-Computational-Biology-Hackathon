@@ -1,0 +1,10 @@
+tree files: 24811
+hsh.tsv lines: 732283
+  2000/24811 families | 50s | eta 571s
+families with exactly two glyma clades: 2656 (other: 22155)
+glyma_output_sets rows: 2656
+families containing soybean genes: 18301
+families with exactly 4 soybean genes: 2964
+WGD-derived genes supplied from step 1: 35493
+families whose 4 soybean genes are ALL WGD-derived: 2344
+final duplicated gene SETS: 1920 (dropped 736 not in 4x-WGD families)
