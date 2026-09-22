@@ -5,6 +5,14 @@ plot the tree with branches colored by fitted omega (dN/dS), and a bar chart
 comparing terminal-branch omega against each paralog's expression-detection
 status in GSE270392 (see ../../gse270392_leghemoglobin_redundancy/).
 
+IMPORTANT topology note: HyPhy analyzes the tree unrooted. For this 4-taxon
+input, that means the actual tested tree is a TRIFURCATING root with three
+branches: Lbc1 (terminal), Lba (terminal), and "Node4" (internal, leading to
+the (Lbc3, Lbc2) clade) -- read directly from the aBSREL result's own
+`input.trees` field, not assumed from the rooted guide tree we supplied.
+There is no separate "Lbc1-Lba" branch in the tested tree; Node4 is the
+ancestral branch of the (Lbc3, Lbc2) clade specifically.
+
 Usage:
     python plot_absrel_selection.py <absrel_modal_result.json> <output.png>
 """
@@ -31,15 +39,16 @@ def main():
         modal_out = json.load(f)
     absrel = json.loads(modal_out["absrel_result"])
 
-    branch_attrs = absrel["branch attributes"]["0"]
-    omega = {}
-    p_corr = {}
-    for branch, attrs in branch_attrs.items():
-        omega[branch] = attrs["Baseline MG94xREV omega ratio"]
-        p_corr[branch] = attrs["Corrected P-value"]
+    # Confirm topology directly from HyPhy's own recorded input tree rather
+    # than assuming it matches the rooted guide tree we supplied.
+    tested_tree_str = absrel["input"]["trees"]["0"]
+    assert "Node4" in tested_tree_str, "expected topology changed -- inspect input.trees before plotting"
 
-    internal_branch = [b for b in branch_attrs if b not in TIP_INFO][0]
-    internal_omega = omega[internal_branch]
+    branch_attrs = absrel["branch attributes"]["0"]
+    omega = {attrs_label(b): attrs["Baseline MG94xREV omega ratio"] for b, attrs in branch_attrs.items()
+             for attrs_label in [lambda x, b=b: TIP_INFO.get(b, {}).get("label", b)]}
+    p_corr = {attrs_label(b): attrs["Corrected P-value"] for b, attrs in branch_attrs.items()
+              for attrs_label in [lambda x, b=b: TIP_INFO.get(b, {}).get("label", b)]}
 
     n_significant = absrel["test results"]["positive test results"]
     n_tested = absrel["test results"]["tested"]
@@ -53,37 +62,34 @@ def main():
     def bc(om):
         return cmap(norm(om))
 
-    y_pos = {"Lbc1": 0, "Lba": 1, "Lbc3": 2, "Lbc2": 3}
-    label_of = {b: v["label"] for b, v in TIP_INFO.items()}
-    x_tip, x_int1, x_int2, x_root = 1.0, 0.5, 0.5, 0.0
+    y_pos = {"Lbc1": 0, "Lba": 1, "Lbc3": 2.3, "Lbc2": 3.3}
+    x_root, x_node4, x_tip = 0.0, 0.5, 1.0
 
-    om_by_label = {v["label"]: omega[b] for b, v in TIP_INFO.items()}
+    ax.plot([x_root, x_tip], [y_pos["Lbc1"]]*2, lw=4, color=bc(omega["Lbc1"]), solid_capstyle="butt")
+    ax.plot([x_root, x_tip], [y_pos["Lba"]]*2, lw=4, color=bc(omega["Lba"]), solid_capstyle="butt")
 
-    ax.plot([x_int1, x_tip], [y_pos["Lbc1"]]*2, lw=4, color=bc(om_by_label["Lbc1"]), solid_capstyle="butt")
-    ax.plot([x_int1, x_tip], [y_pos["Lba"]]*2, lw=4, color=bc(om_by_label["Lba"]), solid_capstyle="butt")
-    ax.plot([x_int1, x_int1], [y_pos["Lbc1"], y_pos["Lba"]], lw=1.2, color="grey")
+    y_node4 = (y_pos["Lbc3"] + y_pos["Lbc2"]) / 2
+    ax.plot([x_root, x_node4], [y_node4]*2, lw=4, color=bc(omega["Node4"]), solid_capstyle="butt")
+    ax.plot([x_root, x_root], [min(y_pos["Lbc1"], y_pos["Lba"], y_node4),
+                                max(y_pos["Lbc1"], y_pos["Lba"], y_node4)], lw=1.2, color="grey")
 
-    ax.plot([x_int2, x_tip], [y_pos["Lbc3"]]*2, lw=4, color=bc(om_by_label["Lbc3"]), solid_capstyle="butt")
-    ax.plot([x_int2, x_tip], [y_pos["Lbc2"]]*2, lw=4, color=bc(om_by_label["Lbc2"]), solid_capstyle="butt")
-    ax.plot([x_int2, x_int2], [y_pos["Lbc3"], y_pos["Lbc2"]], lw=1.2, color="grey")
-
-    y_int1 = (y_pos["Lbc1"] + y_pos["Lba"]) / 2
-    y_int2 = (y_pos["Lbc3"] + y_pos["Lbc2"]) / 2
-    ax.plot([x_root, x_int1], [y_int1]*2, lw=4, color=bc(internal_omega), solid_capstyle="butt")
-    ax.plot([x_root, x_int2], [y_int2]*2, lw=1.2, color="grey")
-    ax.plot([x_root, x_root], [y_int1, y_int2], lw=1.2, color="grey")
+    ax.plot([x_node4, x_tip], [y_pos["Lbc3"]]*2, lw=4, color=bc(omega["Lbc3"]), solid_capstyle="butt")
+    ax.plot([x_node4, x_tip], [y_pos["Lbc2"]]*2, lw=4, color=bc(omega["Lbc2"]), solid_capstyle="butt")
+    ax.plot([x_node4, x_node4], [y_pos["Lbc3"], y_pos["Lbc2"]], lw=1.2, color="grey")
 
     for b, v in TIP_INFO.items():
         y = y_pos[v["label"]]
         status = "expressed" if v["detected"] else "undetected"
         ax.text(x_tip + 0.03, y, f"{v['label']}  ({status})", fontsize=7.2, va="center", ha="left")
 
-    ax.text(x_root - 0.32, (y_int1+y_int2)/2, "internal\nbranch", fontsize=6, ha="center", va="center", color="dimgrey")
-    ax.text(0.75, -0.75, "grey = topology only (not separately tested);\ncolored = one of the 5 branches aBSREL tested",
+    ax.text(x_node4 - 0.02, y_node4 + 0.5, "Node4", fontsize=6.3, ha="center", va="bottom", color="dimgrey")
+    ax.text(0.85, -0.85,
+            "HyPhy unroots the tree to a trifurcating root\n(Lbc1, Lba each attach directly to the root;\n"
+            "no separate Lbc1-Lba branch is tested)",
             fontsize=5.8, ha="center", va="top", color="dimgrey")
 
-    ax.set_xlim(-0.5, 2.0)
-    ax.set_ylim(-1.1, 3.8)
+    ax.set_xlim(-0.4, 2.1)
+    ax.set_ylim(-1.3, 4.0)
     ax.axis("off")
     ax.set_title(f"Branch color = fitted $\\omega$ (dN/dS);\n"
                  f"no branch reaches significance (Holm-Bonferroni p=1, all {n_tested})", fontsize=8)
@@ -98,15 +104,15 @@ def main():
 
     ax2 = axes[1]
     order = ["Lbc2", "Lbc3", "Lbc1", "Lba"]
-    omegas = [om_by_label[l] for l in order]
+    omegas = [omega[l] for l in order]
     detected_flags = [TIP_INFO[[b for b, v in TIP_INFO.items() if v["label"] == l][0]]["detected"] for l in order]
     colors_bar = ["#1b6ca8" if d else "#a8a8a8" for d in detected_flags]
 
     ax2.barh(order, omegas, color=colors_bar, height=0.6)
     ax2.axvline(1.0, color="black", lw=0.8, ls="--")
     ax2.text(1.02, 3.35, "neutral ($\\omega$=1)", fontsize=6, color="dimgrey")
-    for i, om in enumerate(omegas):
-        ax2.text(om + 0.03, i, f"{om:.2f}", va="center", fontsize=7)
+    for i, val in enumerate(omegas):
+        ax2.text(val + 0.03, i, f"{val:.2f}", va="center", fontsize=7)
     ax2.set_xlim(0, 1.35)
     ax2.set_xlabel("Terminal-branch $\\omega$ (dN/dS)")
     ax2.set_title("Undetected paralogs trend toward\nrelaxed constraint (not individually significant)", fontsize=8)
@@ -120,8 +126,7 @@ def main():
     fig.tight_layout()
     fig.savefig(out_path, dpi=200)
     print(f"Saved {out_path}")
-    print(json.dumps({label_of.get(b, b): {"omega": round(omega[b], 4), "corrected_p": p_corr[b]}
-                       for b in branch_attrs}, indent=2))
+    print(json.dumps({l: {"omega": round(omega[l], 4), "corrected_p": p_corr[l]} for l in omega}, indent=2))
     print(f"Positive test results: {n_significant} / {n_tested} branches")
 
 

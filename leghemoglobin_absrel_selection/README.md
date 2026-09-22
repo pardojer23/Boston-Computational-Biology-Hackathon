@@ -45,9 +45,16 @@ split, distinct from the Lbc1/Lba pair, which is undetected in GSE270392.
    account (image: Miniconda + bioconda `prank`+`hyphy`):
    - **PRANK** (`-codon -F`, guided by the pruned tree) for a codon-aware
      multiple alignment of the 4 CDSs;
-   - **HyPhy aBSREL** on that alignment + tree, testing all 5 branches (4
-     terminal + 1 internal -- a 4-taxon unrooted tree has exactly one
-     non-trivial internal edge) for episodic diversifying selection.
+   - **HyPhy aBSREL** on that alignment + tree, testing all 5 branches for
+     episodic diversifying selection. HyPhy analyzes the tree unrooted, which
+     collapses our 4-taxon rooted guide tree into a **trifurcating root**:
+     Lbc1 and Lba each attach directly to the root as separate terminal
+     branches, and the third root branch ("Node4") leads to the (Lbc3, Lbc2)
+     clade. There is therefore no separate Lbc1-Lba branch in the tested
+     tree -- the one internal branch tested (Node4) is specifically the
+     ancestral branch of the (Lbc3, Lbc2) pair. This is read directly from
+     aBSREL's own recorded input tree (`absrel_result["input"]["trees"]`),
+     not assumed from the guide tree's topology.
 4. `code/plot_absrel_selection.py` -- renders the interpretation figure below.
 
 ## Results
@@ -58,7 +65,7 @@ split, distinct from the Lbc1/Lba pair, which is undetected in GSE270392.
 | Lbc3 (`Glyma.10G198800`) | 0.29 | 1.0 | Yes (nodule) |
 | Lbc1 (`Glyma.10G199000`) | 0.37 | 1.0 | No |
 | Lba (`Glyma.10G199100`) | 0.99 | 1.0 | No |
-| internal branch (ancestral split) | 1.20 | 1.0 | -- |
+| Node4 (ancestral branch of the Lbc3+Lbc2 clade) | 1.20 | 1.0 | -- |
 
 **Holm-Bonferroni-corrected likelihood-ratio test for episodic diversifying
 positive selection: 0 of 5 branches significant** (p = 0.05 threshold). No
@@ -67,19 +74,23 @@ paralog shows statistically detectable positive selection on this tree.
 ![aBSREL branch-site selection results for the soybean leghemoglobin quartet](results/leghemoglobin_absrel_selection.png)
 
 **Interpretation, with the caveat that none of this reaches significance**:
-all 4 terminal branches (and the internal branch) sit at $\omega$ < 1
-(purifying selection) except Lba, which is essentially at the neutral
-threshold ($\omega$ = 0.99). Read qualitatively, the omega ranking lines up
-with the expression-based redundancy result: the two expressed, dosage-balanced
-paralogs (Lbc2, Lbc3) show the strongest purifying constraint (lowest
-$\omega$), while the two undetected paralogs (Lbc1, and especially Lba) trend
+all 4 terminal branches sit at $\omega$ < 1 (purifying selection) except Lba,
+which is essentially at the neutral threshold ($\omega$ = 0.99). Read
+qualitatively, the omega ranking lines up with the expression-based
+redundancy result: the two expressed, dosage-balanced paralogs (Lbc2, Lbc3)
+show the strongest purifying constraint (lowest $\omega$) on their terminal
+branches, while the two undetected paralogs (Lbc1, and especially Lba) trend
 toward weaker constraint -- consistent with (though not proof of) a
 degeneration trajectory paralleling their loss of detectable expression. The
-internal branch separating the two pairs has the highest $\omega$ (1.20,
-just above the neutral threshold), which would be consistent with a brief
-period of relaxed constraint or positive selection around the ancestral
-duplication event that produced the two sister pairs -- but this, too, is not
-statistically significant.
+highest $\omega$ (1.20, just above the neutral threshold) is on Node4, the
+ancestral branch leading specifically to the (Lbc3, Lbc2) clade -- i.e. the
+branch immediately preceding the split that produced the two paralogs that
+*are* co-expressed and dosage-balanced today. That would be consistent with a
+brief period of relaxed constraint or positive selection around that
+particular duplication event, rather than around the deeper split separating
+the Lbc1/Lba lineage -- but this, too, is not statistically significant, and
+no equivalent internal branch for the Lbc1/Lba pair exists in the tested
+(unrooted, trifurcating) tree to compare against.
 
 **This analysis has essentially no statistical power** to detect selection at
 this scale: aBSREL is a likelihood-ratio test whose power scales with the
