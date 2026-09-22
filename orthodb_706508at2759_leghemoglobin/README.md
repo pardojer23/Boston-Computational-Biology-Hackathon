@@ -32,8 +32,9 @@ MAFFT + IQ-TREE 2 dispatched as a [Modal](https://modal.com) Function.
      model selection + 1000 ultrafast-bootstrap + 1000 SH-aLRT replicates).
    The function runs on the user's own Modal account (`modal.App(...)`,
    `@app.function(...)`, invoked via `.remote()`); no GPU is needed for a
-   single-gene-family alignment/tree at this scale (4 vCPU / 4 GB, ~17 min
-   wall time for the tree search).
+   single-gene-family alignment/tree at this scale (4 vCPU / 4 GB, ~14 min
+   wall time for the tree search, per IQ-TREE's own reported
+   "Total wall-clock time used" in `results/tree_706508at2759.iqtree`).
 3. `code/render_tree_figure.py` — renders the resulting Newick tree as a
    labeled phylogram (organism name per tip; a gene-id suffix disambiguates
    in-paralogs from multi-copy species).
