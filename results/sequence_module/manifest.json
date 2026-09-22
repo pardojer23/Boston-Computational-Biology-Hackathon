@@ -1,0 +1,50 @@
+{
+  "assembly_annotation": "Wm82.gnm4.ann1.T8TQ (= Phytozome Wm82.a4.v1)",
+  "generated_utc": "2026-09-22T15:19:40Z",
+  "runner": "pipeline/run_local.py",
+  "sources": {
+    "proteome": "https://data.soybase.org/Glycine/max/annotations/Wm82.gnm4.ann1.T8TQ/glyma.Wm82.gnm4.ann1.T8TQ.protein_primary.faa.gz",
+    "gff3": "https://data.soybase.org/Glycine/max/annotations/Wm82.gnm4.ann1.T8TQ/glyma.Wm82.gnm4.ann1.T8TQ.gene_models_exons.gff3.gz",
+    "pfam_hmm": "https://www.ebi.ac.uk/interpro/wwwapi//entry/pfam/PF00042?annotation=hmm"
+  },
+  "input_sha256": {
+    "proteome": "603603800a4b1966868214159e892c44655c69ffc690f676732ed1c204c8447a",
+    "gff3": "d18e497767e4eaf5020993e2eb18b24839d7fafe832f6960a9b9a93b977f0d93",
+    "pfam_hmm": "7b300a21130b823627b09dd11fc5a76a7ca49515504c33493d140bcdeda93db3"
+  },
+  "pfam": {
+    "name": "Globin",
+    "acc": "PF00042.29",
+    "desc": "Globin",
+    "leng": "117",
+    "ga": "22 22;"
+  },
+  "hmmsearch": {
+    "threshold": "--cut_ga",
+    "n_proteins_searched": 52872,
+    "n_hits": 7,
+    "n_focal_rescued": 0,
+    "version": "HMMER 3.4 (Aug 2023); http://hmmer.org/"
+  },
+  "alignment": {
+    "program": "v7.526 (2024/Apr/26)",
+    "mode": "L-INS-i (--localpair --maxiterate 1000)",
+    "n_sequences": 7,
+    "n_columns": 162
+  },
+  "phylogeny": {
+    "program": "IQ-TREE version 3.1.3 for MacOS Intel 64-bit built Jul 26 2026",
+    "options": "-m MFP -B 1000 --alrt 1000 --seed 20240601",
+    "best_model": "Q.PLANT+I"
+  },
+  "esm2": "reused from a previous run (see this file's own provenance)",
+  "duplication_mode": {
+    "tandem_max_intervening_genes": 10,
+    "proximal_max_bp": 1000000,
+    "counts": {
+      "dispersed": 14,
+      "tandem": 7
+    }
+  },
+  "wall_seconds": 11.3
+}

@@ -1,0 +1,23 @@
+# Local environment for the sequence module (everything except ESM2).
+#   conda env create -f environment.yml && conda activate soyglobin
+#
+# ESM2 lives in a separate env on purpose: torch pulls a large dependency set
+# that has no business constraining the bioconda solve.
+#   conda create -n esm2 -c conda-forge python=3.11 pytorch transformers \
+#     "numpy<2" pandas safetensors
+name: soyglobin
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.11
+  - hmmer=3.4
+  - mafft=7.526
+  # v3 CLI is backward compatible with the v2 flags used here; the binary is
+  # installed as `iqtree` (not `iqtree2`), which core.iqtree_exe() handles.
+  - iqtree=3.1.3
+  - biopython
+  - pandas
+  - numpy
+  - scipy
+  - requests
